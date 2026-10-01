@@ -1,0 +1,1411 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPX 站點排序</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#F2F5F8; --surface:#FFFFFF; --surface-2:#E8EEF4;
+  --ink:#13263A; --muted:#475A6D; --line:#C3CFDB;
+  --accent:#14539A; --on-accent:#FFFFFF; --accent-soft:#E1ECF8;
+  --r1:#B3261E; --r2:#8A5A00; --grid:#E1E8EF; --grid-strong:#C9D5E1;
+  --ok:#1D6B3A; --focus:#C45A00; --rep:#6929C4;
+  --radius:10px;
+  --sans:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,"Courier New",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0D1620; --surface:#15212D; --surface-2:#1C2B3A;
+    --ink:#E3EBF3; --muted:#A8B7C6; --line:#33475B;
+    --accent:#86BDF2; --on-accent:#0B1621; --accent-soft:#1B3048;
+    --r1:#FF8F85; --r2:#F0BC62; --grid:#1B2835; --grid-strong:#2A3B4C;
+    --ok:#7FD39B; --focus:#FFB25C; --rep:#C4A7FF;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0D1620; --surface:#15212D; --surface-2:#1C2B3A;
+  --ink:#E3EBF3; --muted:#A8B7C6; --line:#33475B;
+  --accent:#86BDF2; --on-accent:#0B1621; --accent-soft:#1B3048;
+  --r1:#FF8F85; --r2:#F0BC62; --grid:#1B2835; --grid-strong:#2A3B4C;
+  --ok:#7FD39B; --focus:#FFB25C; --rep:#C4A7FF;
+}
+*{box-sizing:border-box}
+html{font-size:112.5%} /* 18px 基準字級 */
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--sans); font-size:1rem; line-height:1.65;
+  padding-inline:16px; padding-block:12px 40px;
+}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.skip{position:absolute;left:16px;top:-60px;background:var(--accent);color:var(--on-accent);padding:10px 16px;border-radius:8px;z-index:50;text-decoration:none;font-weight:700}
+.skip:focus{top:12px}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+button,input,textarea,select{font:inherit;color:inherit}
+
+.wrap{max-width:1280px;margin:0 auto}
+header.top{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;padding-block:8px 16px;border-bottom:1px solid var(--line);margin-bottom:20px}
+header.top h1{font-size:1.6rem;line-height:1.3;margin:0;letter-spacing:.02em;text-wrap:balance}
+header.top p{margin:0;color:var(--muted);font-size:.95rem}
+
+.layout{display:grid;gap:20px;grid-template-columns:1fr}
+@media (min-width:960px){
+  .layout{grid-template-columns:minmax(420px,540px) 1fr;align-items:start}
+  .preview{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);grid-column:2;grid-row:1 / span 7}
+}
+section.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;display:grid;gap:12px}
+section.panel h2{font-size:1.15rem;margin:0;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+section.panel h2 .sub{font-size:.85rem;font-weight:400;color:var(--muted)}
+label{font-weight:500}
+.hint{color:var(--muted);font-size:.88rem;margin:0}
+
+textarea{width:100%;min-height:7.5em;resize:vertical;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-family:var(--mono);font-size:.95rem;line-height:1.55}
+input[type=text],input[type=number]{width:100%;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+input[type=number]{font-family:var(--mono)}
+
+.row{display:flex;flex-wrap:wrap;gap:10px}
+.btn{min-height:44px;padding:8px 16px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);cursor:pointer;font-weight:500;display:inline-flex;align-items:center;gap:8px;line-height:1.2}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn svg{width:20px;height:20px;flex:none}
+
+/* 站點清單 */
+.stops{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.stop{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px}
+.stop.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset;background:var(--accent-soft)}
+.stop.dragging{border-style:dashed;border-color:var(--accent);background:var(--accent-soft);box-shadow:0 6px 18px rgba(0,0,0,.18)}
+.handle{width:44px;height:44px;border:0;background:transparent;border-radius:6px;cursor:grab;touch-action:none;display:grid;place-items:center;color:var(--muted)}
+.handle:hover{background:var(--surface-2);color:var(--ink)}
+.handle:active{cursor:grabbing}
+.handle svg{width:22px;height:22px}
+.pick{border:0;background:transparent;text-align:left;cursor:pointer;display:flex;align-items:center;gap:12px;min-height:44px;padding:4px 6px;border-radius:6px;min-width:0}
+.num{flex:none;width:2.1em;height:2.1em;border-radius:50%;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font-weight:700;font-variant-numeric:tabular-nums;font-size:.95rem}
+.coord{font-family:var(--mono);font-size:.92rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.acts{display:flex;gap:4px}
+.ibtn{width:44px;height:44px;border:1px solid transparent;background:transparent;border-radius:6px;cursor:pointer;display:grid;place-items:center;color:var(--muted)}
+.ibtn:hover{border-color:var(--line);color:var(--ink);background:var(--surface)}
+.ibtn:disabled{opacity:.3;cursor:not-allowed}
+.ibtn svg{width:20px;height:20px}
+.ibtn.del:hover{color:var(--r1)}
+a.ibtn.map{color:var(--accent)}
+a.ibtn.map:hover{border-color:var(--accent)}
+.imsg{border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:.92rem;background:var(--bg)}
+.imsg strong{display:block;margin-bottom:2px}
+.imsg.ok{border-color:var(--accent);background:var(--accent-soft)}
+.imsg.warn{border-color:var(--r2)}
+.imsg.err{border-color:var(--r1)}
+section.panel.dropping{outline:3px dashed var(--accent);outline-offset:-6px}
+.info{display:flex;align-items:center;gap:10px;min-width:0;flex-wrap:wrap;padding:4px 2px}
+.code{flex:none;font-family:var(--mono);font-weight:500;font-size:.9rem;padding:1px 10px;border:1.5px dashed var(--muted);border-radius:999px;background:var(--surface);font-variant-numeric:tabular-nums}
+.stop .num + .code{border-style:solid;border-color:var(--line)}
+.stop.pool{grid-template-columns:1fr auto;padding-left:12px}
+.btn.add{min-height:44px;padding:6px 14px;background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}
+.btn.add svg{width:18px;height:18px}
+.mk{display:inline-grid;place-items:center;min-width:26px;height:22px;border-radius:999px;font-style:normal;font-size:.75rem;font-weight:700;margin-right:6px;vertical-align:middle;padding:0 6px}
+.mk.pool{border:2px dashed var(--muted);background:var(--surface);color:var(--ink);font-family:var(--mono)}
+.mk.route{background:var(--accent);color:var(--on-accent);width:24px;min-width:24px;height:24px;padding:0}
+.rs{flex:none;min-height:36px;padding:2px 10px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface);color:var(--muted);font-size:.85rem;cursor:pointer;font-weight:500}
+.rs.st-ok{border-color:var(--ok);color:var(--ok)}
+.rs.st-rep{border-color:var(--rep);color:var(--rep)}
+.dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.rbar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+.rprog{font-variant-numeric:tabular-nums;font-weight:500}
+.meter{height:10px;border-radius:999px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line)}
+.meter span{display:block;height:100%;background:var(--ok)}
+.steps{margin:0;padding-left:1.4em;display:grid;gap:4px}
+.bm{text-decoration:none;cursor:grab}
+kbd{font-family:var(--mono);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--bg);font-size:.85em}
+.dbody{padding:4px 12px 12px;display:grid;gap:8px}
+.dbody p{margin:0}
+#gasCode{min-height:10em;font-size:.8rem}
+.empty{padding:18px;border:1px dashed var(--line);border-radius:8px;color:var(--muted);text-align:center}
+@media (max-width:520px){
+  .stop{grid-template-columns:40px 1fr;}
+  .acts{grid-column:1 / -1;justify-content:flex-end}
+}
+
+/* 預覽 */
+.preview{padding:12px 14px}
+.canvas-box{position:relative;width:100%;height:min(62vh,640px);min-height:300px;border-radius:8px;border:1px solid var(--line);background:var(--bg);overflow:hidden}
+@media (max-width:959px){
+  .canvas-box{height:46vh;min-height:260px}
+}
+canvas#map{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.map-tools{position:absolute;right:8px;bottom:8px;display:flex;flex-direction:column;gap:6px}
+.map-tools .ibtn{background:var(--surface);border-color:var(--line);color:var(--ink)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.88rem;color:var(--muted);align-items:center}
+.sw{display:inline-block;width:22px;height:0;border-top:3px solid;vertical-align:middle;margin-right:6px}
+.sw.order{border-color:var(--accent)}
+.sw.r1{border-color:var(--r1);border-top-width:2px}
+.sw.r2{border-color:var(--r2);border-top-width:2px}
+.check{display:inline-flex;align-items:center;gap:8px;min-height:44px;font-weight:400;cursor:pointer}
+.check input{width:22px;height:22px;accent-color:var(--accent)}
+
+/* 統計與輸出 */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0}
+.stats div{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stats dt{font-size:.8rem;color:var(--muted);letter-spacing:.04em}
+.stats dd{margin:0;font-size:1.25rem;font-weight:700;font-variant-numeric:tabular-nums}
+.stats dd small{font-size:.8rem;font-weight:400;color:var(--muted);margin-left:2px}
+@media (max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}}
+.fields{display:grid;grid-template-columns:minmax(0,12em);gap:10px}
+.fields > div{display:grid;gap:4px}
+.namer{border:1px solid var(--line);border-radius:8px;padding:12px 14px 14px;margin:0;display:grid;gap:12px;min-width:0}
+.namer legend{font-weight:700;padding:0 6px}
+.nf{display:grid;grid-template-columns:repeat(auto-fill,minmax(11em,1fr));gap:10px 12px}
+.nf > div{display:grid;gap:4px;align-content:start}
+.nf small{color:var(--muted);font-size:.8rem}
+.lbl{font-weight:500}
+#nHour[aria-invalid="true"],#nNum[aria-invalid="true"]{border:2px solid var(--r1)}
+#nPrefix{width:100%;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.suffix{display:flex;align-items:center;gap:8px}
+.suffix input{flex:1;min-width:0}
+#nCount{min-height:44px;display:flex;align-items:center;padding:8px 12px;border:1px dashed var(--line);border-radius:8px;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.name-preview{display:grid;gap:4px}
+#namePreview{display:block;padding:10px 12px;border-radius:8px;background:var(--accent-soft);border:1px solid var(--accent);font-weight:500;overflow-wrap:anywhere;min-height:44px}
+details{border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+details summary{cursor:pointer;padding:10px 12px;min-height:44px;font-weight:500}
+details textarea{border:0;border-top:1px solid var(--line);border-radius:0 0 8px 8px;min-height:14em;font-size:.82rem;background:var(--surface)}
+.note{font-size:.85rem;color:var(--muted);margin:0}
+
+.to-top-wrap{display:flex;justify-content:center;padding-block:24px 8px}
+#pageTop:focus{outline:none}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .2s;max-width:calc(100% - 32px);text-align:center;z-index:40}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+
+
+<a class="skip" href="#routePanel">跳到路線清單</a>
+<div class="wrap">
+  <header class="top">
+    <h1 id="pageTop" tabindex="-1">GPX 站點排序</h1>
+    <p>點位有固定代號 P1、P2…；依你點選加入的先後排成路線，每站跑完 R1 → R2 再換下一站。</p>
+  </header>
+
+  <main class="layout">
+    <!-- 1 輸入 -->
+    <section class="panel" id="inPanel" aria-labelledby="inTitle">
+      <h2 id="inTitle">輸入座標 <span class="sub">一行一個「緯度, 經度」</span></h2>
+      <label for="coordsInput" class="sr-only">座標，一行一個</label>
+      <textarea id="coordsInput" spellcheck="false" aria-describedby="inHint" placeholder="23.949163, 120.576512"></textarea>
+      <p id="inHint" class="hint">加入後會依序編成 P1、P2…，放進待選點，代號之後不會再變；重複座標會略過。也可以貼上整份 GPX，或匯入／拖放 .gpx 檔，會自動找出每站中心點。</p>
+      <div id="importMsg" class="imsg" role="status" hidden></div>
+      <div class="row">
+        <button class="btn primary" id="btnAppend" type="button">加入待選點</button>
+        <button class="btn" id="btnReplace" type="button">取代全部點</button>
+        <button class="btn" id="btnPickGpx" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 15V4M7 9l5-5 5 5M5 20h14"/></svg>匯入 GPX 檔</button>
+        <input type="file" id="gpxFile" hidden>
+      </div>
+    </section>
+
+    <!-- 預覽 -->
+    <section class="panel preview" aria-labelledby="pvTitle">
+      <h2 id="pvTitle">相對位置預覽 <span class="sub">上方為北・點一下加入或移出路線</span></h2>
+      <div class="canvas-box">
+        <canvas id="map" role="img" aria-label="點位相對位置預覽"></canvas>
+        <div class="map-tools">
+          <button class="ibtn" id="zoomIn" type="button" aria-label="放大預覽"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+          <button class="ibtn" id="zoomOut" type="button" aria-label="縮小預覽"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+          <button class="ibtn" id="zoomFit" type="button" aria-label="重設為全部點位置中"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+        </div>
+      </div>
+      <div class="legend">
+        <span><i class="mk pool" aria-hidden="true">P</i>待選點</span>
+        <span><i class="mk route" aria-hidden="true">1</i>路線（數字為順序）</span>
+        <span><i class="sw order" aria-hidden="true"></i>行走方向</span>
+        <span><i class="dot" style="background:var(--ok)" aria-hidden="true"></i>正常</span>
+        <span><i class="dot" style="background:var(--rep)" aria-hidden="true"></i>已回報</span>
+        <span><i class="sw r1" aria-hidden="true"></i>R1 30 m</span>
+        <span><i class="sw r2" aria-hidden="true"></i>R2 15 m</span>
+        <label class="check"><input type="checkbox" id="showDetail" checked> 顯示 R1／R2 路徑</label>
+      </div>
+      <p class="note">拖曳平移、滾輪或雙指縮放。滑過或聚焦清單中的點，預覽會標出位置。</p>
+    </section>
+
+    <!-- 回報檢查 -->
+    <section class="panel" id="reportPanel" aria-labelledby="repTitle">
+      <h2 id="repTitle">回報檢查 <span class="sub">逐點到蘑菇地圖確認</span></h2>
+      <p class="hint">點每個點的「未檢查」切換狀態：未檢查 → 正常 → 已回報。按藍色定位圖示可在蘑菇地圖開啟該點。</p>
+      <div class="meter" aria-hidden="true"><span id="repMeter" style="width:0%"></span></div>
+      <div class="rbar">
+        <span class="rprog" id="repProg" role="status">尚無點位</span>
+        <label class="check"><input type="checkbox" id="repFilter"> 只顯示未檢查的點</label>
+        <button class="btn" id="btnRepClear" type="button">清除回報狀態</button>
+      </div>
+    </section>
+
+    <!-- 路線 -->
+    <section class="panel" id="routePanel" aria-labelledby="routeTitle" tabindex="-1">
+      <h2 id="routeTitle">路線 <span class="sub" id="routeCount"></span></h2>
+      <p id="dragHelp" class="hint">按住左側握把上下拖曳調整順序；鍵盤可聚焦握把後按 ↑ ↓ 移動。</p>
+      <ol class="stops" id="routeList" aria-describedby="dragHelp"></ol>
+      <div class="row">
+        <button class="btn" id="btnUndo" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>復原</button>
+        <button class="btn" id="btnReverse" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></svg>路線反轉</button>
+        <button class="btn" id="btnCopyCenters" type="button">複製路線座標</button>
+        <button class="btn" id="btnClearRoute" type="button">清空路線</button>
+      </div>
+    </section>
+
+    <!-- 待選點 -->
+    <section class="panel" id="poolPanel" aria-labelledby="poolTitle">
+      <h2 id="poolTitle">待選點 <span class="sub" id="poolCount"></span></h2>
+      <ul class="stops" id="poolList"></ul>
+      <div class="row">
+        <button class="btn" id="btnAddAll" type="button">全部依代號加入</button>
+        <button class="btn" id="btnClearAll" type="button">刪除全部點</button>
+      </div>
+    </section>
+
+    <!-- 輸出 -->
+    <section class="panel" aria-labelledby="outTitle">
+      <h2 id="outTitle">輸出 GPX <span class="sub">TRK 軌跡格式・只輸出路線中的點</span></h2>
+      <dl class="stats">
+        <div><dt>路線站數</dt><dd id="stStops">0</dd></div>
+        <div><dt>軌跡點</dt><dd id="stPts">0</dd></div>
+        <div><dt>總距離</dt><dd><span id="stKm">0.00</span><small>km</small></dd></div>
+        <div><dt>預估時間</dt><dd><span id="stMin">0</span><small>分</small></dd></div>
+      </dl>
+      <fieldset class="namer">
+        <legend>軌跡名稱</legend>
+        <div class="nf">
+          <div><label for="nPrefix">前綴</label><select id="nPrefix" aria-describedby="nPrefixHint"><option value="">不加</option><option value="臨時">臨時</option></select><small id="nPrefixHint">選「臨時」會加上 (臨時)</small></div>
+          <div><label for="nNum">編號</label><input type="text" id="nNum" inputmode="numeric" maxlength="2" autocomplete="off" aria-describedby="nNumHint"><small id="nNumHint">2 位數字，例如 05</small></div>
+          <div><label for="nTown">縣市鄉鎮名</label><input type="text" id="nTown" list="dlTown" autocomplete="off"></div>
+          <div><label for="nArea">區域指標名</label><input type="text" id="nArea" list="dlArea" autocomplete="off"></div>
+          <div><span class="lbl" id="nCountLbl">點數</span><output id="nCount" aria-labelledby="nCountLbl">0個</output><small>依路線站數自動計算</small></div>
+          <div><label for="nHour">預計摘採時間</label><div class="suffix"><input type="number" id="nHour" min="0" max="23" step="1" inputmode="numeric" aria-describedby="nHourHint"><span aria-hidden="true">點</span></div><small id="nHourHint">24 小時制，填 0～23</small></div>
+        </div>
+        <datalist id="dlTown"></datalist><datalist id="dlArea"></datalist>
+        <div class="name-preview"><span class="lbl">完整檔名</span><output id="namePreview" aria-live="polite"></output></div>
+      </fieldset>
+      <div class="fields">
+        <div><label for="speed">速度 km/h</label><input type="number" id="speed" min="1" max="200" step="1" value="19"></div>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="btnCopy" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h9"/></svg>複製 GPX</button>
+        <button class="btn" id="btnDownload" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>下載 .gpx</button>
+      </div>
+      <details id="gpxDetails">
+        <summary>查看 GPX 內容</summary>
+        <label for="gpxOut" class="sr-only">GPX 內容</label>
+        <textarea id="gpxOut" readonly spellcheck="false"></textarea>
+      </details>
+      <p class="note">每站 24 點：R1 15 點＋R2 9 點。R1 第 13 點與 R2 第 1 點同座標，依原工具保留。</p>
+    </section>
+
+    <!-- 果實摘採器 -->
+    <section class="panel" id="pickerPanel" aria-labelledby="pkTitle">
+      <h2 id="pkTitle">果實摘採器 <span class="sub">蘑菇地圖用的書籤工具 v9</span></h2>
+      <p class="hint">在蘑菇地圖（pipimushroom.com）收集座標、切換常用區域、監看彩虹花，並標出彩虹花在你哪條路線的第幾站。需使用電腦版 Chrome 或 Edge。</p>
+      <ol class="steps">
+        <li>按 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> 顯示書籤列（已有舊版請先刪除）。</li>
+        <li>把下面藍色按鈕<strong>拖曳到書籤列</strong>。</li>
+        <li>登入蘑菇地圖後，點書籤列的「果實摘採器」，左下角會出現面板。</li>
+      </ol>
+      <div class="row">
+        <a class="btn primary bm" id="bmLink" href="javascript:(function%20()%20%7Bif%20(window.__mfCollector)%20%7Bif%20(window.__mfCollector.ver%20===%209)%20%7B%20window.__mfCollector.show();%20return;%20%7Dalert(&#x27;%E9%80%99%E5%80%8B%E9%A0%81%E9%9D%A2%E5%B7%B2%E7%B6%93%E5%9C%A8%E8%B7%91%E8%88%8A%E7%89%88%E7%9A%84%E6%91%98%E6%8E%A1%E5%99%A8%E3%80%82%5Cn%E8%AB%8B%E6%8C%89%20F5%20%E9%87%8D%E6%96%B0%E6%95%B4%E7%90%86%E9%A0%81%E9%9D%A2%EF%BC%8C%E5%86%8D%E9%BB%9E%E4%B8%80%E6%AC%A1%E6%96%B0%E7%9A%84%E6%9B%B8%E7%B1%A4%E3%80%82&#x27;);return;%7Dvar%20KEY%20=%20&#x27;mfCollector.v1&#x27;,%20AKEY%20=%20&#x27;mfCollector.areas&#x27;;var%20theMap%20=%20null;try%20%7Bvar%20ofire%20=%20L.Evented.prototype.fire;L.Evented.prototype.fire%20=%20function%20()%20%7B%20if%20(!theMap%20&amp;&amp;%20this%20instanceof%20L.Map)%20theMap%20=%20this;%20return%20ofire.apply(this,%20arguments);%20%7D;%7D%20catch%20(e)%20%7B%7Dtry%20%7B%20var%20mc%20=%20document.querySelector(&#x27;.leaflet-container&#x27;);%20if%20(mc)%20mc.dispatchEvent(new%20Event(&#x27;focus&#x27;));%20%7D%20catch%20(e)%20%7B%7Dvar%20store%20=%20%7B%7D,%20lastMode%20=%20&#x27;&#x27;,%20lastOk%20=%20true,%20lastLoad%20=%200,%20waiters%20=%20%5B%5D,%20curArea%20=%20&#x27;&#x27;,%20clockOff%20=%200,%20sweepCounts%20=%20null;function%20nowMs()%20%7B%20return%20Date.now()%20+%20clockOff;%20%7Dfunction%20minZoom()%20%7B%20return%20Math.max(15,%20Number(window.mfMapDetailZoom)%20%7C%7C%2015);%20%7Dfunction%20takeResp(path,%20r)%20%7Bif%20(!r%20%7C%7C%20String(path).indexOf(&#x27;MfMapData&#x27;)%20%3C%200)%20return;lastOk%20=%20r.ok%20!==%20false;%20lastMode%20=%20r.mode%20%7C%7C%20&#x27;&#x27;;%20lastLoad%20=%20Date.now();if%20(r.nowMs%20&amp;&amp;%20isFinite(r.nowMs))%20clockOff%20=%20Number(r.nowMs)%20-%20Date.now();if%20(sweepCounts%20&amp;&amp;%20curArea)%20%7B%20var%20fc%20=%20(r.items%20%7C%7C%20%5B%5D).filter(function%20(it)%20%7B%20return%20it%20&amp;&amp;%20it.itemKind%20===%20&#x27;flower&#x27;;%20%7D).length;%20sweepCounts%5BcurArea%5D%20=%20(sweepCounts%5BcurArea%5D%20%7C%7C%200)%20+%20fc;%20%7Dif%20(r.mode%20===%20&#x27;items&#x27;%20&amp;&amp;%20Array.isArray(r.items))%20%7Br.items.forEach(function%20(it)%20%7B%20if%20(it%20&amp;&amp;%20it.itemKind%20===%20&#x27;flower&#x27;%20&amp;&amp;%20it.id)%20%7B%20var%20old%20=%20store%5Bit.id%5D;%20it.__area%20=%20curArea%20%7C%7C%20(old%20&amp;&amp;%20old.__area)%20%7C%7C%20&#x27;&#x27;;%20store%5Bit.id%5D%20=%20it;%20%7D%20%7D);%7Dvar%20w%20=%20waiters;%20waiters%20=%20%5B%5D;%20w.forEach(function%20(f)%20%7B%20f();%20%7D);if%20(window.__mfCollector%20&amp;&amp;%20window.__mfCollector.tick)%20window.__mfCollector.tick();%7Dtry%20%7Bvar%20api%20=%20window.PikminApi;if%20(api%20&amp;&amp;%20api.request%20&amp;&amp;%20!api.request.__mfc)%20%7Bvar%20oreq%20=%20api.request;api.request%20=%20function%20(path)%20%7Bvar%20pr%20=%20oreq.apply(this,%20arguments);try%20%7B%20pr.then(function%20(r)%20%7B%20takeResp(path,%20r);%20%7D,%20function%20()%20%7B%7D);%20%7D%20catch%20(e)%20%7B%7Dreturn%20pr;%7D;api.request.__mfc%20=%20true;%7D%7D%20catch%20(e)%20%7B%7Dvar%20areas%20=%20%5B%5D;try%20%7B%20areas%20=%20JSON.parse(localStorage.getItem(AKEY)%20%7C%7C%20&#x27;%5B%5D&#x27;)%20%7C%7C%20%5B%5D;%20%7D%20catch%20(e)%20%7B%20areas%20=%20%5B%5D;%20%7Dfunction%20saveAreas(skip)%20%7B%20try%20%7B%20localStorage.setItem(AKEY,%20JSON.stringify(areas));%20%7D%20catch%20(e)%20%7B%7D%20if%20(!skip)%20markDirty();%20%7Dfunction%20currentView()%20%7Bif%20(theMap)%20%7B%20var%20c%20=%20theMap.getCenter();%20return%20%7B%20lat:%20+c.lat.toFixed(6),%20lng:%20+c.lng.toFixed(6),%20zoom:%20theMap.getZoom()%20%7D;%20%7Dvar%20q%20=%20new%20URLSearchParams(location.search),%20la%20=%20parseFloat(q.get(&#x27;lat&#x27;)),%20ln%20=%20parseFloat(q.get(&#x27;lng&#x27;));if%20(isFinite(la)%20&amp;&amp;%20isFinite(ln))%20return%20%7B%20lat:%20la,%20lng:%20ln,%20zoom:%20parseInt(q.get(&#x27;zoom&#x27;)%20%7C%7C%20&#x27;16&#x27;,%2010)%20%7D;return%20null;%7Dfunction%20areaUrl(a)%20%7B%20return%20location.origin%20+%20&#x27;/mfmap.aspx?lat=&#x27;%20+%20a.lat%20+%20&#x27;&amp;lng=&#x27;%20+%20a.lng%20+%20&#x27;&amp;zoom=&#x27;%20+%20(a.zoom%20%7C%7C%2016);%20%7Dvar%20list%20=%20%5B%5D;try%20%7B%20list%20=%20JSON.parse(localStorage.getItem(KEY)%20%7C%7C%20&#x27;%5B%5D&#x27;)%20%7C%7C%20%5B%5D;%20%7D%20catch%20(e)%20%7B%20list%20=%20%5B%5D;%20%7Dfunction%20save(skip)%20%7B%20try%20%7B%20localStorage.setItem(KEY,%20JSON.stringify(list));%20%7D%20catch%20(e)%20%7B%7D%20if%20(!skip)%20markDirty();%20%7Dfunction%20norm(t)%20%7Bvar%20m%20=%20String(t).match(/(-?%5Cd+(?:%5C.%5Cd+)?)%5Cs*,%5Cs*(-?%5Cd+(?:%5C.%5Cd+)?)/);return%20m%20?%20%7B%20lat:%20(+m%5B1%5D).toFixed(6),%20lng:%20(+m%5B2%5D).toFixed(6)%20%7D%20:%20null;%7Dfunction%20has(p)%20%7B%20return%20list.some(function%20(x)%20%7B%20return%20x.lat%20===%20p.lat%20&amp;&amp;%20x.lng%20===%20p.lng;%20%7D);%20%7Dvar%20css%20=%20document.createElement(&#x27;style&#x27;);css.textContent%20=&#x27;%23mfc%7Bposition:fixed;left:12px;bottom:12px;max-height:calc(100vh%20-%2024px);overflow:auto;z-index:2147483000;width:320px;max-width:calc(100vw%20-%2024px);background:%23fff;color:%2313263A;border:2px%20solid%20%2314539A;border-radius:12px;box-shadow:0%208px%2028px%20rgba(0,0,0,.25);font:16px/1.5%20%22Noto%20Sans%20TC%22,%22Microsoft%20JhengHei%22,system-ui,sans-serif%7D&#x27;%20+&#x27;%23mfc%20*%7Bbox-sizing:border-box;font:inherit%7D&#x27;%20+&#x27;%23mfc%20.h%7Bdisplay:flex;align-items:center;gap:8px;padding:8px%2010px;background:%2314539A;color:%23fff;border-radius:9px%209px%200%200%7D&#x27;%20+&#x27;%23mfc%20.h%20b%7Bflex:1;font-weight:700%7D&#x27;%20+&#x27;%23mfc%20.h%20button%7Bmin-width:40px;min-height:40px;border:0;border-radius:8px;background:rgba(255,255,255,.18);color:%23fff;cursor:pointer;font-size:18px%7D&#x27;%20+&#x27;%23mfc%20ol%7Blist-style:none;margin:0;padding:6px%208px;max-height:40vh;overflow:auto%7D&#x27;%20+&#x27;%23mfc%20ol%20li%7Bdisplay:grid;grid-template-columns:2em%201fr%2040px;align-items:center;gap:6px;padding:6px%202px;border-bottom:1px%20solid%20%23D5DEE8%7D&#x27;%20+&#x27;%23mfc%20ol%20li%20.n%7Bfont-weight:700;color:%2314539A;text-align:right%7D&#x27;%20+&#x27;%23mfc%20ol%20li%20.t%7Bmin-width:0;overflow-wrap:anywhere%7D&#x27;%20+&#x27;%23mfc%20ol%20li%20.t%20small%7Bdisplay:block;color:%23475A6D;font-family:Consolas,monospace;font-size:13px%7D&#x27;%20+&#x27;%23mfc%20ol%20li%20button%7Bwidth:40px;height:40px;border:1px%20solid%20%23C3CFDB;border-radius:8px;background:%23fff;color:%23B3261E;cursor:pointer;font-size:18px%7D&#x27;%20+&#x27;%23mfc%20.e%7Bpadding:12px;color:%23475A6D;font-size:14px%7D&#x27;%20+&#x27;%23mfc%20.f%7Bdisplay:flex;flex-wrap:wrap;gap:8px;padding:8px%2010px%2010px%7D&#x27;%20+&#x27;%23mfc%20.f%20button%7Bmin-height:44px;padding:6px%2014px;border-radius:8px;border:1px%20solid%20%23C3CFDB;background:%23EEF3F8;color:%2313263A;cursor:pointer;font-weight:500%7D&#x27;%20+&#x27;%23mfc%20.f%20.p%7Bbackground:%2314539A;border-color:%2314539A;color:%23fff%7D&#x27;%20+&#x27;%23mfc%20.msg%7Bpadding:0%2012px%208px;font-size:14px;color:%231D6B3A;min-height:1.2em%7D&#x27;%20+&#x27;%23mfc%20.ar%7Bpadding:8px%2010px%7D&#x27;%20+&#x27;%23mfc%20.ar%20h3%7Bmargin:0%200%206px;font-size:14px;font-weight:700;color:%23475A6D%7D&#x27;%20+&#x27;%23mfc%20.chips%7Bdisplay:flex;flex-wrap:wrap;gap:6px%7D&#x27;%20+&#x27;%23mfc%20.chip%7Bdisplay:inline-flex;border:1px%20solid%20%2314539A;border-radius:8px;overflow:hidden%7D&#x27;%20+&#x27;%23mfc%20.chip%20a%7Bdisplay:inline-flex;align-items:center;min-height:40px;padding:4px%2012px;color:%2314539A;text-decoration:none;font-weight:700;background:%23E1ECF8%7D&#x27;%20+&#x27;%23mfc%20.chip%20button%7Bwidth:36px;min-height:40px;border:0;border-left:1px%20solid%20%2314539A;background:%23fff;color:%23B3261E;cursor:pointer%7D&#x27;%20+&#x27;%23mfc%20.ar%20.acts%7Bdisplay:flex;flex-wrap:wrap;gap:6px;margin-top:6px%7D&#x27;%20+&#x27;%23mfc%20.ar%20.acts%20button%7Bmin-height:40px;padding:4px%2012px;border-radius:8px;border:1px%20solid%20%23C3CFDB;background:%23EEF3F8;color:%2313263A;cursor:pointer;font-size:14px%7D&#x27;%20+&#x27;%23mfc%20.rb%7Bpadding:8px%2010px%7D&#x27;%20+&#x27;%23mfc%20.rb%20h3%7Bmargin:0%200%206px;font-size:14px;font-weight:700;color:%23475A6D%7D&#x27;%20+&#x27;%23mfc%20.rb%20.ctl%7Bdisplay:flex;flex-wrap:wrap;gap:6px;align-items:center%7D&#x27;%20+&#x27;%23mfc%20.rb%20.go%7Bmin-height:40px;padding:4px%2014px;border-radius:8px;border:2px%20solid%20%238A3FFC;background:%23fff;color:%236929C4;font-weight:700;cursor:pointer%7D&#x27;%20+&#x27;%23mfc%20.rb%20.go%5Baria-pressed=true%5D%7Bbackground:%236929C4;border-color:%236929C4;color:%23fff%7D&#x27;%20+&#x27;%23mfc%20.rb%20select%7Bmin-height:40px;border:1px%20solid%20%23C3CFDB;border-radius:8px;padding:2px%206px;background:%23fff;color:%2313263A;font-size:14px%7D&#x27;%20+&#x27;%23mfc%20.rb%20.st%7Bfont-size:13px;color:%23475A6D;margin-top:4px%7D&#x27;%20+&#x27;%23mfc%20.rb%20.st.warn%7Bcolor:%23B3261E;font-weight:700%7D&#x27;%20+&#x27;%23mfc%20.rb%20ul%7Blist-style:none;margin:6px%200%200;padding:0;max-height:26vh;overflow:auto;display:grid;gap:6px%7D&#x27;%20+&#x27;%23mfc%20.rb%20li%7Bborder:1px%20solid%20%23C9B6F5;background:%23F5F0FF;border-radius:8px;padding:6px%208px%7D&#x27;%20+&#x27;%23mfc%20.rb%20li%20.nm%7Bfont-weight:700;overflow-wrap:anywhere%7D&#x27;%20+&#x27;%23mfc%20.rb%20li%20.tm%7Bfont-family:Consolas,monospace;color:%236929C4;font-weight:700%7D&#x27;%20+&#x27;%23mfc%20.rb%20li%20small%7Bdisplay:block;color:%23475A6D;font-size:12px%7D&#x27;%20+&#x27;%23mfc%20.rb%20li%20.bb%7Bdisplay:flex;gap:6px;margin-top:4px%7D&#x27;%20+&#x27;%23mfc%20.rb%20li%20.bb%20button%7Bmin-height:36px;padding:2px%2010px;border-radius:6px;border:1px%20solid%20%23C3CFDB;background:%23fff;color:%2313263A;cursor:pointer;font-size:14px%7D&#x27;%20+&#x27;%23mfc%20.ml%7Bmargin-top:6px;border:1px%20solid%20%23C3CFDB;border-radius:8px;background:%23F7F9FC%7D&#x27;%20+&#x27;%23mfc%20.ml%20summary%7Bcursor:pointer;min-height:40px;display:flex;align-items:center;padding:4px%2010px;font-size:14px;font-weight:700%7D&#x27;%20+&#x27;%23mfc%20.ml%20.mb%7Bpadding:4px%2010px%2010px;display:grid;gap:6px;font-size:14px%7D&#x27;%20+&#x27;%23mfc%20.ml%20input%5Btype=text%5D,%23mfc%20.ml%20input%5Btype=password%5D%7Bwidth:100%25;min-height:38px;border:1px%20solid%20%23C3CFDB;border-radius:6px;padding:4px%208px;background:%23fff;color:%2313263A;font-size:14px%7D&#x27;%20+&#x27;%23mfc%20.ml%20.mr%7Bdisplay:flex;flex-wrap:wrap;gap:6px%7D&#x27;%20+&#x27;%23mfc%20.ml%20.mr%20button%7Bmin-height:38px;padding:2px%2012px;border-radius:6px;border:1px%20solid%20%23C3CFDB;background:%23fff;color:%2313263A;cursor:pointer;font-size:14px%7D&#x27;%20+&#x27;%23mfc%20.ml%20.ms%7Bfont-size:13px;color:%23475A6D%7D&#x27;%20+&#x27;%23mfc%20.sec%7Bborder-bottom:2px%20solid%20%23D5DEE8%7D&#x27;%20+&#x27;%23mfc%20.sec%3Esummary%7Bcursor:pointer;min-height:44px;display:flex;align-items:center;gap:6px;padding:4px%2012px;font-size:15px;font-weight:700;background:%23F2F5F8;color:%2313263A%7D&#x27;%20+&#x27;%23mfc%20.sec%3Esummary:focus-visible%7Boutline:3px%20solid%20%23C45A00;outline-offset:-3px%7D&#x27;%20+&#x27;%23mfc%20.ml%7Bmargin-top:0;border:0;border-radius:0;border-bottom:2px%20solid%20%23D5DEE8%7D&#x27;%20+&#x27;%23mfc%20.h%20.hs%7Bfont-size:13px;font-weight:500;opacity:.95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px%7D&#x27;%20+&#x27;%23mfc%20.rtb%7Bpadding:8px%2010px;display:grid;gap:6px;font-size:14px%7D&#x27;%20+&#x27;%23mfc%20.rtb%20.mr%7Bdisplay:flex;flex-wrap:wrap;gap:6px%7D&#x27;%20+&#x27;%23mfc%20.rtb%20.mr%20button,%23mfc%20.rlist%20button,%23mfc%20.rh%20button%7Bmin-height:36px;padding:2px%2010px;border-radius:6px;border:1px%20solid%20%23C3CFDB;background:%23fff;color:%2313263A;cursor:pointer;font-size:14px%7D&#x27;%20+&#x27;%23mfc%20.rhint%7Bmargin:0;color:%23475A6D;font-size:13px%7D&#x27;%20+&#x27;%23mfc%20.rlist%7Blist-style:none;margin:0;padding:0;display:grid;gap:4px;max-height:30vh;overflow:auto%7D&#x27;%20+&#x27;%23mfc%20.rlist%20li%7Bdisplay:flex;align-items:center;gap:6px;border:1px%20solid%20%23D5DEE8;border-radius:6px;padding:4px%206px%7D&#x27;%20+&#x27;%23mfc%20.rlist%20li%20.rn%7Bflex:1;min-width:0;overflow-wrap:anywhere%7D&#x27;%20+&#x27;%23mfc%20.rlist%20li%20.rn%20small%7Bdisplay:block;color:%23475A6D;font-size:12px%7D&#x27;%20+&#x27;%23mfc%20.rh%7Bmargin-top:4px;display:grid;gap:4px%7D&#x27;%20+&#x27;%23mfc%20.rh%20div%7Bdisplay:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;font-weight:700;color:%2314539A%7D&#x27;%20+&#x27;%23mfc.min%20.body%7Bdisplay:none%7D&#x27;%20+&#x27;%23mfc%20button:focus-visible,.mfc-add:focus-visible%7Boutline:3px%20solid%20%23C45A00;outline-offset:2px%7D&#x27;%20+&#x27;.mfc-add%7Bdisplay:block;width:100%25;margin-top:8px;min-height:44px;border-radius:8px;border:2px%20solid%20%2314539A;background:%2314539A;color:%23fff;font:700%2016px/1.2%20%22Noto%20Sans%20TC%22,%22Microsoft%20JhengHei%22,sans-serif;cursor:pointer%7D&#x27;%20+&#x27;.mfc-add.done%7Bbackground:%23fff;color:%2314539A%7D&#x27;;document.head.appendChild(css);var%20box%20=%20document.createElement(&#x27;section&#x27;);box.id%20=%20&#x27;mfc&#x27;;box.setAttribute(&#x27;aria-label&#x27;,%20&#x27;%E6%9E%9C%E5%AF%A6%E6%91%98%E6%8E%A1%E5%99%A8&#x27;);box.innerHTML%20=&#x27;%3Cdiv%20class=%22h%22%3E%3Cb%20class=%22ht%22%3E%E6%9E%9C%E5%AF%A6%E6%91%98%E6%8E%A1%E5%99%A8%20v9%3C/b%3E%3Cspan%20class=%22hs%22%3E%3C/span%3E&#x27;%20+&#x27;%3Cbutton%20type=%22button%22%20class=%22mi%22%20aria-label=%22%E7%B8%AE%E5%B0%8F%E6%88%96%E5%B1%95%E9%96%8B%E9%9D%A2%E6%9D%BF%22%20aria-expanded=%22true%22%3E%EF%BC%8D%3C/button%3E&#x27;%20+&#x27;%3Cbutton%20type=%22button%22%20class=%22x%22%20aria-label=%22%E9%97%9C%E9%96%89%E6%91%98%E6%8E%A1%E5%99%A8%EF%BC%88%E8%B3%87%E6%96%99%E6%9C%83%E4%BF%9D%E7%95%99%EF%BC%89%22%3E%C3%97%3C/button%3E%3C/div%3E&#x27;%20+&#x27;%3Cdiv%20class=%22body%22%3E&#x27;%20+&#x27;%3Cdetails%20class=%22sec%22%20data-k=%22ar%22%20open%3E%3Csummary%3E%E5%B8%B8%E7%94%A8%E5%8D%80%E5%9F%9F%3C/summary%3E%3Cdiv%20class=%22ar%22%3E%3Cdiv%20class=%22chips%22%3E%3C/div%3E%3Cdiv%20class=%22acts%22%3E%3Cbutton%20type=%22button%22%20class=%22sv%22%3E%EF%BC%8B%E5%AD%98%E7%9B%AE%E5%89%8D%E7%95%AB%E9%9D%A2%3C/button%3E%3Cbutton%20type=%22button%22%20class=%22oa%22%3E%E5%85%A8%E9%83%A8%E9%96%8B%E6%96%B0%E5%88%86%E9%A0%81%3C/button%3E%3C/div%3E%3C/div%3E%3C/details%3E&#x27;%20+&#x27;%3Cdetails%20class=%22sec%22%20data-k=%22rb%22%20open%3E%3Csummary%3E%E5%BD%A9%E8%99%B9%E8%8A%B1%E7%9B%A3%E7%9C%8B%EF%BC%88%E5%80%92%E6%95%B8%2022:00%EF%BD%9E22:59%EF%BC%89%3C/summary%3E%3Cdiv%20class=%22rb%22%3E%3Cdiv%20class=%22ctl%22%3E&#x27;%20+&#x27;%3Cbutton%20type=%22button%22%20class=%22go%22%20aria-pressed=%22false%22%3E%E9%96%8B%E5%A7%8B%E7%9B%A3%E7%9C%8B%3C/button%3E&#x27;%20+&#x27;%3Clabel%20style=%22font-size:14px%22%3E%E6%AF%8F%20%3Cselect%20class=%22iv%22%20aria-label=%22%E8%87%AA%E5%8B%95%E6%9B%B4%E6%96%B0%E9%96%93%E9%9A%94%22%3E%3Coption%20value=%221%22%3E1%3C/option%3E%3Coption%20value=%223%22%3E3%3C/option%3E%3Coption%20value=%225%22%20selected%3E5%3C/option%3E%3Coption%20value=%2210%22%3E10%3C/option%3E%3C/select%3E%20%E5%88%86%E9%90%98%E6%9B%B4%E6%96%B0%3C/label%3E%3C/div%3E&#x27;%20+&#x27;%3Clabel%20class=%22rot%22%20style=%22display:flex;align-items:center;gap:8px;min-height:40px;font-size:14px;cursor:pointer%22%3E%3Cinput%20type=%22checkbox%22%20class=%22uf%22%20checked%20style=%22width:20px;height:20px%22%3E%20%E4%BE%9D%E5%9C%B0%E5%9C%96%E7%AF%A9%E9%81%B8%E5%99%A8%EF%BC%88%E5%8F%AA%E7%9C%8B%E5%8B%BE%E9%81%B8%E7%9A%84%E8%8A%B1%E7%A8%AE%EF%BC%89%3C/label%3E&#x27;%20+&#x27;%3Clabel%20class=%22rot%22%20style=%22display:flex;align-items:center;gap:8px;min-height:40px;font-size:14px;cursor:pointer%22%3E%3Cinput%20type=%22checkbox%22%20class=%22rt%22%20style=%22width:20px;height:20px%22%3E%20%E8%BC%AA%E6%B5%81%E7%9B%A3%E7%9C%8B%E6%89%80%E6%9C%89%E5%B8%B8%E7%94%A8%E5%8D%80%E5%9F%9F%3C/label%3E&#x27;%20+&#x27;%3Cdiv%20class=%22st%22%20role=%22status%22%3E%3C/div%3E%3Cul%20class=%22rl%22%20aria-label=%22%E5%BD%A9%E8%99%B9%E8%8A%B1%E6%B8%85%E5%96%AE%22%3E%3C/ul%3E%3C/div%3E%3C/details%3E&#x27;%20+&#x27;%3Cdetails%20class=%22sec%22%20data-k=%22rt%22%3E%3Csummary%3E%E6%88%91%E7%9A%84%E8%B7%AF%E7%B7%9A%20%3Cspan%20class=%22rc%22%3E0%3C/span%3E%20%E6%A2%9D%3C/summary%3E%3Cdiv%20class=%22rtb%22%3E&#x27;%20+&#x27;%3Cdiv%20class=%22mr%22%3E%3Cbutton%20type=%22button%22%20class=%22rimp%22%3E%E5%8C%AF%E5%85%A5%E8%B7%AF%E7%B7%9A%20GPX%3C/button%3E%3Cinput%20type=%22file%22%20class=%22rfile%22%20accept=%22.gpx,application/gpx+xml%22%20multiple%20hidden%3E%3C/div%3E&#x27;%20+&#x27;%3Cp%20class=%22rhint%22%3E%E5%8C%AF%E5%85%A5%20GPX%20%E7%AB%99%E9%BB%9E%E6%8E%92%E5%BA%8F%E4%B8%8B%E8%BC%89%E7%9A%84%E8%B7%AF%E7%B7%9A%E6%AA%94%EF%BC%88%E5%8F%AF%E4%B8%80%E6%AC%A1%E9%81%B8%E5%A4%9A%E5%80%8B%EF%BC%89%E3%80%82%E7%99%BC%E7%8F%BE%E5%BD%A9%E8%99%B9%E8%8A%B1%E6%99%82%EF%BC%8C%E6%9C%83%E6%A8%99%E5%87%BA%E5%AE%83%E5%9C%A8%E5%93%AA%E6%A2%9D%E8%B7%AF%E7%B7%9A%E7%9A%84%E7%AC%AC%E5%B9%BE%E7%AB%99%E3%80%82%3C/p%3E&#x27;%20+&#x27;%3Cul%20class=%22rlist%22%20aria-label=%22%E8%B7%AF%E7%B7%9A%E6%B8%85%E5%96%AE%22%3E%3C/ul%3E%3C/div%3E%3C/details%3E&#x27;%20+&#x27;%3Cdetails%20class=%22sec%20ml%22%20data-k=%22cfg%22%3E%3Csummary%3E%E9%9B%B2%E7%AB%AF%E5%90%8C%E6%AD%A5%E8%88%87%E9%80%9A%E7%9F%A5%E8%A8%AD%E5%AE%9A%3C/summary%3E%3Cdiv%20class=%22mb%22%3E&#x27;%20+&#x27;%3Clabel%20style=%22display:flex;align-items:center;gap:8px;cursor:pointer%22%3E%3Cinput%20type=%22checkbox%22%20class=%22mon%22%20style=%22width:20px;height:20px%22%3E%20%E7%99%BC%E7%8F%BE%E6%96%B0%E5%BD%A9%E8%99%B9%E8%8A%B1%E6%99%82%E7%99%BC%E9%80%81%E9%80%9A%E7%9F%A5%EF%BC%88Telegram%EF%BC%89%3C/label%3E&#x27;%20+&#x27;%3Clabel%3EGAS%20%E7%B6%B2%E5%9D%80%EF%BC%88%E7%B6%B2%E9%A0%81%E6%87%89%E7%94%A8%E7%A8%8B%E5%BC%8F%20/exec%EF%BC%89%3Cinput%20type=%22text%22%20class=%22murl%22%20autocomplete=%22off%22%20spellcheck=%22false%22%20placeholder=%22https://script.google.com/macros/s/.../exec%22%3E%3C/label%3E&#x27;%20+&#x27;%3Clabel%3E%E9%80%9A%E9%97%9C%E5%AF%86%E7%A2%BC%EF%BC%88%E8%88%87%20GAS%20%E8%A3%A1%E7%9A%84%20TOKEN%20%E7%9B%B8%E5%90%8C%EF%BC%89%3Cinput%20type=%22password%22%20class=%22mtok%22%20autocomplete=%22off%22%3E%3C/label%3E&#x27;%20+&#x27;%3Clabel%3E%E9%80%99%E5%8F%B0%E9%9B%BB%E8%85%A6%E5%90%8D%E7%A8%B1%3Cinput%20type=%22text%22%20class=%22mdev%22%20autocomplete=%22off%22%20placeholder=%22%E4%BE%8B%E5%A6%82%EF%BC%9A%E5%AE%B6%E8%A3%A1%E6%A1%8C%E6%A9%9F%22%3E%3C/label%3E&#x27;%20+&#x27;%3Cdiv%20class=%22mr%22%3E%3Cbutton%20type=%22button%22%20class=%22msave%22%3E%E5%84%B2%E5%AD%98%3C/button%3E%3Cbutton%20type=%22button%22%20class=%22msync%22%3E%E7%AB%8B%E5%8D%B3%E5%90%8C%E6%AD%A5%3C/button%3E%3Cbutton%20type=%22button%22%20class=%22mpush%22%3E%E4%B8%8A%E5%82%B3%E7%9B%AE%E5%89%8D%E8%A8%AD%E5%AE%9A%3C/button%3E%3C/div%3E&#x27;%20+&#x27;%3Cdiv%20class=%22mr%22%3E%3Cbutton%20type=%22button%22%20class=%22mnot%22%3E%E8%A8%AD%E7%82%BA%E9%80%9A%E7%9F%A5%E9%9B%BB%E8%85%A6%3C/button%3E%3Cbutton%20type=%22button%22%20class=%22mtest%22%3E%E7%99%BC%E9%80%81%E6%B8%AC%E8%A9%A6%E9%80%9A%E7%9F%A5%3C/button%3E%3C/div%3E&#x27;%20+&#x27;%3Cdiv%20class=%22ms2%22%20role=%22status%22%20style=%22font-size:13px;color:%23475A6D%22%3E%3C/div%3E&#x27;%20+&#x27;%3Cdiv%20class=%22ms%22%20role=%22status%22%3E%3C/div%3E%3C/div%3E%3C/details%3E&#x27;%20+&#x27;%3Cdetails%20class=%22sec%22%20data-k=%22ls%22%3E%3Csummary%3E%E6%94%B6%E9%9B%86%E6%B8%85%E5%96%AE%20%3Cspan%20class=%22c%22%3E0%3C/span%3E%20%E5%80%8B%3C/summary%3E%3Col%3E%3C/ol%3E%3Cp%20class=%22e%22%3E%E9%BB%9E%E9%96%8B%E8%98%91%E8%8F%87%E6%88%96%E8%8A%B1%EF%BC%8C%E6%8C%89%E3%80%8C%EF%BC%8B%E5%8A%A0%E5%85%A5%20GPX%E3%80%8D%E6%94%B6%E9%9B%86%E5%BA%A7%E6%A8%99%E3%80%82%3C/p%3E&#x27;%20+&#x27;%3Cdiv%20class=%22f%22%3E%3Cbutton%20type=%22button%22%20class=%22p%20cp%22%3E%E8%A4%87%E8%A3%BD%E5%85%A8%E9%83%A8%E5%BA%A7%E6%A8%99%3C/button%3E%3Cbutton%20type=%22button%22%20class=%22clr%22%3E%E6%B8%85%E7%A9%BA%3C/button%3E%3C/div%3E%3C/details%3E&#x27;%20+&#x27;%3C/div%3E&#x27;%20+&#x27;%3Cdiv%20class=%22msg%22%20role=%22status%22%20aria-live=%22polite%22%3E%3C/div%3E&#x27;;document.body.appendChild(box);var%20ol%20=%20box.querySelector(&#x27;ol&#x27;),%20msgEl%20=%20box.querySelector(&#x27;.msg&#x27;);function%20msg(t)%20%7B%20msgEl.textContent%20=%20t;%20clearTimeout(msg.t);%20msg.t%20=%20setTimeout(function%20()%20%7B%20msgEl.textContent%20=%20&#x27;&#x27;;%20%7D,%203000);%20%7Dfunction%20render()%20%7Bbox.querySelector(&#x27;.c&#x27;).textContent%20=%20list.length;box.querySelector(&#x27;.e&#x27;).hidden%20=%20list.length%20%3E%200;ol.innerHTML%20=%20&#x27;&#x27;;list.forEach(function%20(p,%20i)%20%7Bvar%20li%20=%20document.createElement(&#x27;li&#x27;);var%20n%20=%20document.createElement(&#x27;span&#x27;);%20n.className%20=%20&#x27;n&#x27;;%20n.textContent%20=%20(i%20+%201)%20+%20&#x27;.&#x27;;var%20t%20=%20document.createElement(&#x27;span&#x27;);%20t.className%20=%20&#x27;t&#x27;;t.textContent%20=%20p.name%20%7C%7C%20&#x27;%EF%BC%88%E6%9C%AA%E5%91%BD%E5%90%8D%EF%BC%89&#x27;;var%20s%20=%20document.createElement(&#x27;small&#x27;);%20s.textContent%20=%20p.lat%20+%20&#x27;,%20&#x27;%20+%20p.lng;%20t.appendChild(s);var%20b%20=%20document.createElement(&#x27;button&#x27;);%20b.type%20=%20&#x27;button&#x27;;%20b.textContent%20=%20&#x27;%C3%97&#x27;;b.setAttribute(&#x27;aria-label&#x27;,%20&#x27;%E5%88%AA%E9%99%A4%E7%AC%AC%20&#x27;%20+%20(i%20+%201)%20+%20&#x27;%20%E5%80%8B%EF%BC%9A&#x27;%20+%20(p.name%20%7C%7C%20p.lat%20+%20&#x27;,%20&#x27;%20+%20p.lng));b.onclick%20=%20function%20()%20%7B%20list.splice(i,%201);%20save();%20render();%20syncButtons();%20msg(&#x27;%E5%B7%B2%E5%88%AA%E9%99%A4&#x27;);%20%7D;li.appendChild(n);%20li.appendChild(t);%20li.appendChild(b);%20ol.appendChild(li);%7D);%7Dfunction%20renderAreas()%20%7Bvar%20wrap%20=%20box.querySelector(&#x27;.chips&#x27;);%20wrap.innerHTML%20=%20&#x27;&#x27;;if%20(!areas.length)%20%7B%20var%20s%20=%20document.createElement(&#x27;span&#x27;);%20s.style.cssText%20=%20&#x27;font-size:14px;color:%23475A6D&#x27;;%20s.textContent%20=%20&#x27;%E9%82%84%E6%B2%92%E6%9C%89%E5%B8%B8%E7%94%A8%E5%8D%80%E5%9F%9F%EF%BC%8C%E7%A7%BB%E5%88%B0%E6%83%B3%E8%A6%81%E7%9A%84%E5%9C%B0%E6%96%B9%E5%BE%8C%E6%8C%89%E3%80%8C%E5%AD%98%E7%9B%AE%E5%89%8D%E7%95%AB%E9%9D%A2%E3%80%8D%E3%80%82&#x27;;%20wrap.appendChild(s);%20%7Dareas.forEach(function%20(a,%20i)%20%7Bvar%20c%20=%20document.createElement(&#x27;span&#x27;);%20c.className%20=%20&#x27;chip&#x27;;var%20l%20=%20document.createElement(&#x27;a&#x27;);%20l.href%20=%20areaUrl(a);%20l.textContent%20=%20a.name;l.setAttribute(&#x27;aria-label&#x27;,%20&#x27;%E5%88%87%E6%8F%9B%E5%88%B0%20&#x27;%20+%20a.name);l.onclick%20=%20function%20(e)%20%7B%20if%20(theMap)%20%7B%20e.preventDefault();%20theMap.setView(%5Ba.lat,%20a.lng%5D,%20a.zoom%20%7C%7C%2016);%20msg(&#x27;%E5%B7%B2%E5%88%87%E6%8F%9B%E5%88%B0%20&#x27;%20+%20a.name);%20%7D%20%7D;var%20x%20=%20document.createElement(&#x27;button&#x27;);%20x.type%20=%20&#x27;button&#x27;;%20x.textContent%20=%20&#x27;%C3%97&#x27;;x.setAttribute(&#x27;aria-label&#x27;,%20&#x27;%E5%88%AA%E9%99%A4%E5%B8%B8%E7%94%A8%E5%8D%80%E5%9F%9F%20&#x27;%20+%20a.name);x.onclick%20=%20function%20()%20%7B%20if%20(!confirm(&#x27;%E5%88%AA%E9%99%A4%E5%B8%B8%E7%94%A8%E5%8D%80%E5%9F%9F%E3%80%8C&#x27;%20+%20a.name%20+%20&#x27;%E3%80%8D%EF%BC%9F&#x27;))%20return;%20areas.splice(i,%201);%20saveAreas();%20renderAreas();%20msg(&#x27;%E5%B7%B2%E5%88%AA%E9%99%A4%E5%8D%80%E5%9F%9F&#x27;);%20%7D;c.appendChild(l);%20c.appendChild(x);%20wrap.appendChild(c);%7D);box.querySelector(&#x27;.oa&#x27;).hidden%20=%20areas.length%20%3C%202;%7Dbox.querySelector(&#x27;.sv&#x27;).onclick%20=%20function%20()%20%7Bvar%20v%20=%20currentView();if%20(!v)%20%7B%20msg(&#x27;%E8%AB%8B%E5%85%88%E6%8B%96%E5%8B%95%E4%B8%80%E4%B8%8B%E5%9C%B0%E5%9C%96%EF%BC%8C%E5%86%8D%E6%8C%89%E4%B8%80%E6%AC%A1&#x27;);%20return;%20%7Dvar%20name%20=%20prompt(&#x27;%E5%B9%AB%E9%80%99%E5%80%8B%E5%8D%80%E5%9F%9F%E5%8F%96%E5%80%8B%E5%90%8D%E5%AD%97%EF%BC%88%E4%BE%8B%E5%A6%82%EF%BC%9A%E5%93%A1%E6%9E%97%EF%BC%89&#x27;,%20&#x27;%E5%8D%80%E5%9F%9F%20&#x27;%20+%20(areas.length%20+%201));if%20(name%20===%20null)%20return;name%20=%20name.trim()%20%7C%7C%20(&#x27;%E5%8D%80%E5%9F%9F%20&#x27;%20+%20(areas.length%20+%201));v.name%20=%20name;%20areas.push(v);%20saveAreas();%20renderAreas();%20msg(&#x27;%E5%B7%B2%E5%AD%98%E5%B8%B8%E7%94%A8%E5%8D%80%E5%9F%9F%EF%BC%9A&#x27;%20+%20name);%7D;box.querySelector(&#x27;.oa&#x27;).onclick%20=%20function%20()%20%7Bvar%20blocked%20=%200;areas.forEach(function%20(a)%20%7B%20var%20w%20=%20window.open(areaUrl(a),%20&#x27;_blank&#x27;);%20if%20(!w)%20blocked++;%20%7D);msg(blocked%20?%20&#x27;%E6%9C%89%20&#x27;%20+%20blocked%20+%20&#x27;%20%E5%80%8B%E5%88%86%E9%A0%81%E8%A2%AB%E6%93%8B%EF%BC%8C%E8%AB%8B%E5%9C%A8%E7%B6%B2%E5%9D%80%E5%88%97%E5%8F%B3%E5%81%B4%E5%85%81%E8%A8%B1%E6%AD%A4%E7%B6%B2%E7%AB%99%E9%96%8B%E5%95%9F%E5%BD%88%E5%87%BA%E5%BC%8F%E8%A6%96%E7%AA%97%E5%BE%8C%E5%86%8D%E6%8C%89%E4%B8%80%E6%AC%A1&#x27;%20:%20&#x27;%E5%B7%B2%E9%96%8B%E5%95%9F%20&#x27;%20+%20areas.length%20+%20&#x27;%20%E5%80%8B%E5%88%86%E9%A0%81&#x27;);%7D;var%20H%20=%203600000,%20mon%20=%20%7B%20on:%20false,%20timer:%200,%20tick:%200,%20seen:%20%7B%7D,%20flash:%200,%20audio:%20null,%20next:%200%20%7D;function%20remain(it)%20%7B%20return%20it.wiltingMs%20-%20nowMs();%20%7Dfunction%20isRainbow(it)%20%7Bif%20(!it%20%7C%7C%20it.itemKind%20!==%20&#x27;flower&#x27;%20%7C%7C%20!it.wiltingMs%20%7C%7C%20!it.bloomedMs)%20return%20false;if%20(nowMs()%20%3C%20it.bloomedMs)%20return%20false;var%20r%20=%20remain(it);%20return%20r%20%3E=%2022%20*%20H%20&amp;&amp;%20r%20%3C=%2023%20*%20H;%7Dfunction%20hms(ms)%20%7Bvar%20t%20=%20Math.max(0,%20Math.floor(ms%20/%201000)),%20h%20=%20Math.floor(t%20/%203600),%20m%20=%20Math.floor(t%20%25%203600%20/%2060),%20sec%20=%20t%20%25%2060;return%20h%20+%20&#x27;:&#x27;%20+%20(m%20%3C%2010%20?%20&#x27;0&#x27;%20:%20&#x27;&#x27;)%20+%20m%20+%20&#x27;:&#x27;%20+%20(sec%20%3C%2010%20?%20&#x27;0&#x27;%20:%20&#x27;&#x27;)%20+%20sec;%7Dfunction%20hm(d)%20%7B%20d%20=%20new%20Date(d);%20return%20(d.getHours()%20%3C%2010%20?%20&#x27;0&#x27;%20:%20&#x27;&#x27;)%20+%20d.getHours()%20+%20&#x27;:&#x27;%20+%20(d.getMinutes()%20%3C%2010%20?%20&#x27;0&#x27;%20:%20&#x27;&#x27;)%20+%20d.getMinutes();%20%7Dfunction%20readFilter()%20%7B%20try%20%7B%20return%20JSON.parse(localStorage.getItem(&#x27;pikminMfMapFilter:v1&#x27;)%20%7C%7C%20&#x27;%7B%7D&#x27;)%20%7C%7C%20%7B%7D;%20%7D%20catch%20(e)%20%7B%20return%20%7B%7D;%20%7D%20%7Dfunction%20useFilter()%20%7B%20var%20c%20=%20box.querySelector(&#x27;.uf&#x27;);%20return%20!c%20%7C%7C%20c.checked;%20%7Dfunction%20passFilter(it,%20f)%20%7Bif%20(!useFilter())%20return%20true;if%20(it.key%20&amp;&amp;%20Object.prototype.hasOwnProperty.call(f,%20it.key))%20return%20f%5Bit.key%5D%20!==%20false;return%20true;%7Dfunction%20filterInfo(f)%20%7Bvar%20ks%20=%20Object.keys(f).filter(function%20(k)%20%7B%20return%20k.indexOf(&#x27;f:&#x27;)%20===%200;%20%7D);var%20on%20=%20ks.filter(function%20(k)%20%7B%20return%20f%5Bk%5D%20!==%20false;%20%7D).length;return%20%7B%20on:%20on,%20total:%20ks.length%20%7D;%7Dfunction%20rainbows()%20%7Bvar%20flt%20=%20readFilter();var%20out%20=%20%5B%5D;Object.keys(store).forEach(function%20(id)%20%7Bvar%20it%20=%20store%5Bid%5D;if%20(remain(it)%20%3C=%200)%20%7B%20delete%20store%5Bid%5D;%20return;%20%7Dif%20(isRainbow(it)%20&amp;&amp;%20passFilter(it,%20flt))%20out.push(it);%7D);return%20out.sort(function%20(a,%20b)%20%7B%20return%20remain(b)%20-%20remain(a);%20%7D);%7Dfunction%20beep()%20%7Btry%20%7Bvar%20ac%20=%20mon.audio;%20if%20(!ac)%20return;if%20(ac.state%20===%20&#x27;suspended&#x27;)%20ac.resume();%5B0,%200.25,%200.5%5D.forEach(function%20(d,%20i)%20%7Bvar%20o%20=%20ac.createOscillator(),%20g%20=%20ac.createGain();o.type%20=%20&#x27;sine&#x27;;%20o.frequency.value%20=%20%5B880,%201175,%201568%5D%5Bi%5D;g.gain.setValueAtTime(0.0001,%20ac.currentTime%20+%20d);g.gain.exponentialRampToValueAtTime(0.3,%20ac.currentTime%20+%20d%20+%200.02);g.gain.exponentialRampToValueAtTime(0.0001,%20ac.currentTime%20+%20d%20+%200.22);o.connect(g);%20g.connect(ac.destination);%20o.start(ac.currentTime%20+%20d);%20o.stop(ac.currentTime%20+%20d%20+%200.25);%7D);%7D%20catch%20(e)%20%7B%7D%7Dvar%20baseTitle%20=%20document.title;function%20stopFlash()%20%7B%20if%20(mon.flash)%20%7B%20clearInterval(mon.flash);%20mon.flash%20=%200;%20document.title%20=%20baseTitle;%20%7D%20%7Dfunction%20startFlash(n)%20%7BstopFlash();%20var%20on%20=%20false;mon.flash%20=%20setInterval(function%20()%20%7B%20on%20=%20!on;%20document.title%20=%20on%20?%20&#x27;%F0%9F%8C%88%20&#x27;%20+%20n%20+%20&#x27;%20%E6%9C%B5%E6%96%B0%E5%BD%A9%E8%99%B9%E8%8A%B1&#x27;%20:%20baseTitle;%20%7D,%201000);%7Dwindow.addEventListener(&#x27;focus&#x27;,%20stopFlash);document.addEventListener(&#x27;visibilitychange&#x27;,%20function%20()%20%7B%20if%20(!document.hidden%20&amp;&amp;%20document.hasFocus())%20stopFlash();%20%7D);function%20locate(it)%20%7Bif%20(theMap)%20%7B%20theMap.setView(%5Bit.lat,%20it.lng%5D,%20Math.max(theMap.getZoom(),%2017));%20%7Delse%20location.href%20=%20areaUrl(%7B%20lat:%20it.lat,%20lng:%20it.lng,%20zoom:%2017%20%7D);%7Dfunction%20notifyNew(items)%20%7Bbeep();if%20(!document.hasFocus())%20startFlash(items.length);try%20%7Bif%20(window.Notification%20&amp;&amp;%20Notification.permission%20===%20&#x27;granted&#x27;)%20%7Bvar%20n%20=%20new%20Notification(&#x27;%F0%9F%8C%88%20%E7%99%BC%E7%8F%BE%20&#x27;%20+%20items.length%20+%20&#x27;%20%E6%9C%B5%E6%96%B0%E5%BD%A9%E8%99%B9%E8%8A%B1&#x27;,%20%7Bbody:%20items.slice(0,%204).map(function%20(it)%20%7B%20var%20h%20=%20routeHits(it)%5B0%5D;%20return%20(it.__area%20?%20&#x27;%E3%80%94&#x27;%20+%20it.__area%20+%20&#x27;%E3%80%95&#x27;%20:%20&#x27;&#x27;)%20+%20(it.title%20%7C%7C%20&#x27;%E6%9C%AA%E5%91%BD%E5%90%8D&#x27;)%20+%20&#x27;%EF%BC%88&#x27;%20+%20hms(remain(it))%20+%20&#x27;%EF%BC%89&#x27;%20+%20(h%20?%20&#x27;%20%E2%9E%9C%20&#x27;%20+%20h.name%20+%20&#x27;%20%E7%AC%AC&#x27;%20+%20h.idx%20+%20&#x27;%E7%AB%99&#x27;%20:%20&#x27;&#x27;);%20%7D).join(&#x27;%5Cn&#x27;),tag:%20&#x27;mfc-rainbow&#x27;,%20renotify:%20true%7D);n.onclick%20=%20function%20()%20%7B%20window.focus();%20locate(items%5B0%5D);%20n.close();%20%7D;%7D%7D%20catch%20(e)%20%7B%7DqueueMail(items);msg(&#x27;%E7%99%BC%E7%8F%BE%20&#x27;%20+%20items.length%20+%20&#x27;%20%E6%9C%B5%E6%96%B0%E5%BD%A9%E8%99%B9%E8%8A%B1&#x27;);%7Dfunction%20renderRainbow()%20%7Bvar%20ul%20=%20box.querySelector(&#x27;.rl&#x27;),%20st%20=%20box.querySelector(&#x27;.st&#x27;),%20rs%20=%20rainbows();var%20fresh%20=%20%5B%5D;rs.forEach(function%20(it)%20%7B%20if%20(!mon.seen%5Bit.id%5D)%20%7B%20mon.seen%5Bit.id%5D%20=%201;%20fresh.push(it);%20%7D%20%7D);if%20(mon.on%20&amp;&amp;%20fresh.length)%20notifyNew(fresh);var%20key%20=%20rs.map(function%20(it)%20%7B%20return%20it.id;%20%7D).join(&#x27;%7C&#x27;);if%20(key%20===%20mon.key)%20%7Bul.querySelectorAll(&#x27;.tm&#x27;).forEach(function%20(el,%20i)%20%7B%20if%20(rs%5Bi%5D)%20el.textContent%20=%20hms(remain(rs%5Bi%5D));%20%7D);%7D%20else%20%7Bmon.key%20=%20key;ul.innerHTML%20=%20&#x27;&#x27;;rs.forEach(function%20(it)%20%7Bvar%20li%20=%20document.createElement(&#x27;li&#x27;);var%20nm%20=%20document.createElement(&#x27;div&#x27;);%20nm.className%20=%20&#x27;nm&#x27;;%20nm.textContent%20=%20(it.__area%20?%20&#x27;%E3%80%94&#x27;%20+%20it.__area%20+%20&#x27;%E3%80%95&#x27;%20:%20&#x27;&#x27;)%20+%20(it.title%20%7C%7C%20&#x27;%E6%9C%AA%E5%91%BD%E5%90%8D&#x27;)%20+%20&#x27;%E3%80%80&#x27;;var%20tm%20=%20document.createElement(&#x27;span&#x27;);%20tm.className%20=%20&#x27;tm&#x27;;%20tm.textContent%20=%20hms(remain(it));%20nm.appendChild(tm);var%20sm%20=%20document.createElement(&#x27;small&#x27;);%20sm.textContent%20=%20(it.displayName%20?%20it.displayName%20+%20&#x27;%EF%BD%9C&#x27;%20:%20&#x27;&#x27;)%20+%20(+it.lat).toFixed(6)%20+%20&#x27;,%20&#x27;%20+%20(+it.lng).toFixed(6);var%20bb%20=%20document.createElement(&#x27;div&#x27;);%20bb.className%20=%20&#x27;bb&#x27;;var%20b1%20=%20document.createElement(&#x27;button&#x27;);%20b1.type%20=%20&#x27;button&#x27;;%20b1.textContent%20=%20&#x27;%E5%AE%9A%E4%BD%8D&#x27;;%20b1.setAttribute(&#x27;aria-label&#x27;,%20&#x27;%E5%9C%A8%E5%9C%B0%E5%9C%96%E4%B8%8A%E5%AE%9A%E4%BD%8D%20&#x27;%20+%20(it.title%20%7C%7C%20&#x27;&#x27;));b1.onclick%20=%20function%20()%20%7B%20locate(it);%20%7D;var%20p%20=%20%7B%20lat:%20(+it.lat).toFixed(6),%20lng:%20(+it.lng).toFixed(6),%20name:%20it.title%20%7C%7C%20&#x27;&#x27;%20%7D;var%20b2%20=%20document.createElement(&#x27;button&#x27;);%20b2.type%20=%20&#x27;button&#x27;;b2.textContent%20=%20has(p)%20?%20&#x27;%E2%9C%93%20%E5%B7%B2%E5%9C%A8%E6%B8%85%E5%96%AE&#x27;%20:%20&#x27;%EF%BC%8B%E5%8A%A0%E5%85%A5%20GPX&#x27;;b2.onclick%20=%20function%20()%20%7B%20if%20(!has(p))%20%7B%20list.push(p);%20save();%20render();%20syncButtons();%20msg(&#x27;%E5%B7%B2%E5%8A%A0%E5%85%A5%E7%AC%AC%20&#x27;%20+%20list.length%20+%20&#x27;%20%E5%80%8B%EF%BC%9A&#x27;%20+%20p.name);%20%7D%20b2.textContent%20=%20&#x27;%E2%9C%93%20%E5%B7%B2%E5%9C%A8%E6%B8%85%E5%96%AE&#x27;;%20%7D;bb.appendChild(b1);%20bb.appendChild(b2);li.appendChild(nm);%20li.appendChild(sm);%20li.appendChild(bb);var%20hits%20=%20routeHits(it);if%20(hits.length)%20%7Bvar%20rh%20=%20document.createElement(&#x27;div&#x27;);%20rh.className%20=%20&#x27;rh&#x27;;hits.slice(0,%203).forEach(function%20(h)%20%7Bvar%20d%20=%20document.createElement(&#x27;div&#x27;);var%20tx%20=%20document.createElement(&#x27;span&#x27;);%20tx.textContent%20=%20&#x27;%E2%9E%9C%20&#x27;%20+%20h.name%20+%20&#x27;%E3%80%80%E7%AC%AC%20&#x27;%20+%20h.idx%20+%20&#x27;%20%E7%AB%99&#x27;;var%20db%20=%20document.createElement(&#x27;button&#x27;);%20db.type%20=%20&#x27;button&#x27;;%20db.textContent%20=%20&#x27;%E4%B8%8B%E8%BC%89%20GPX&#x27;;db.setAttribute(&#x27;aria-label&#x27;,%20&#x27;%E4%B8%8B%E8%BC%89%E8%B7%AF%E7%B7%9A%20&#x27;%20+%20h.name);db.onclick%20=%20function%20()%20%7B%20downloadRoute(h.route);%20%7D;d.appendChild(tx);%20d.appendChild(db);%20rh.appendChild(d);%7D);li.appendChild(rh);%7Dul.appendChild(li);%7D);%7Dvar%20txt%20=%20&#x27;&#x27;;if%20(mon.sweepMsg)%20%7B%20st.className%20=%20&#x27;st&#x27;;%20st.textContent%20=%20mon.sweepMsg;%20return;%20%7Dif%20(!lastOk)%20%7B%20st.className%20=%20&#x27;st%20warn&#x27;;%20txt%20=%20&#x27;%E8%AE%80%E5%8F%96%E8%B3%87%E6%96%99%E5%A4%B1%E6%95%97%EF%BC%8C%E5%8F%AF%E8%83%BD%E7%99%BB%E5%85%A5%E9%81%8E%E6%9C%9F%EF%BC%8C%E8%AB%8B%E9%87%8D%E6%96%B0%E6%95%B4%E7%90%86%E9%A0%81%E9%9D%A2%E4%B8%A6%E7%99%BB%E5%85%A5&#x27;;%20%7Delse%20if%20(lastMode%20&amp;&amp;%20lastMode%20!==%20&#x27;items&#x27;)%20%7B%20st.className%20=%20&#x27;st%20warn&#x27;;%20txt%20=%20&#x27;%E5%9C%B0%E5%9C%96%E7%B8%AE%E5%BE%97%E5%A4%AA%E9%81%A0%EF%BC%8C%E8%AB%8B%E6%94%BE%E5%A4%A7%E5%88%B0%E7%9C%8B%E5%BE%97%E5%88%B0%E5%80%8B%E5%88%A5%E8%8A%B1%E6%9C%B5&#x27;;%20%7Delse%20if%20(!(box.querySelector(&#x27;.rt&#x27;).checked%20&amp;&amp;%20areas.length)%20&amp;&amp;%20theMap%20&amp;&amp;%20theMap.getZoom()%20%3C%20minZoom())%20%7B%20st.className%20=%20&#x27;st%20warn&#x27;;%20txt%20=%20&#x27;%E7%9B%AE%E5%89%8D%E7%95%AB%E9%9D%A2%E7%B8%AE%E6%94%BE%20&#x27;%20+%20theMap.getZoom()%20+%20&#x27;%20%E7%B4%9A%EF%BC%8C%E8%AB%8B%E6%94%BE%E5%A4%A7%E5%88%B0%20&#x27;%20+%20minZoom()%20+%20&#x27;%20%E7%B4%9A%E4%BB%A5%E4%B8%8A%E6%89%8D%E6%8A%93%E5%BE%97%E5%88%B0%E8%8A%B1&#x27;;%20%7Delse%20%7Bst.className%20=%20&#x27;st&#x27;;var%20fi%20=%20filterInfo(readFilter());var%20zeroA%20=%20mon.lastCounts%20?%20Object.keys(mon.lastCounts).filter(function%20(k)%20%7B%20return%20!mon.lastCounts%5Bk%5D;%20%7D)%20:%20%5B%5D;if%20(zeroA.length)%20st.className%20=%20&#x27;st%20warn&#x27;;txt%20=%20(zeroA.length%20?%20&#x27;%E2%9A%A0%20%E9%80%99%E4%BA%9B%E5%8D%80%E5%9F%9F%E6%B2%92%E6%8A%93%E5%88%B0%E8%8A%B1%EF%BC%8C%E8%AB%8B%E7%A2%BA%E8%AA%8D%EF%BC%9A&#x27;%20+%20zeroA.join(&#x27;%E3%80%81&#x27;)%20+%20&#x27;%EF%BD%9C&#x27;%20:%20&#x27;&#x27;)%20+%20(mon.on%20?%20&#x27;%E7%9B%A3%E7%9C%8B%E4%B8%AD&#x27;%20:%20&#x27;%E6%9C%AA%E7%9B%A3%E7%9C%8B&#x27;)%20+%20&#x27;%EF%BD%9C%E7%9B%AE%E5%89%8D%20&#x27;%20+%20rs.length%20+%20&#x27;%20%E6%9C%B5%E5%BD%A9%E8%99%B9%E8%8A%B1&#x27;%20+%20(useFilter()%20?%20(fi.total%20?%20&#x27;%EF%BD%9C%E4%BE%9D%E7%AF%A9%E9%81%B8%EF%BC%9A&#x27;%20+%20fi.on%20+%20&#x27;/&#x27;%20+%20fi.total%20+%20&#x27;%20%E7%A8%AE%E8%8A%B1&#x27;%20:%20&#x27;%EF%BD%9C%E4%BE%9D%E7%AF%A9%E9%81%B8%EF%BC%9A%E5%85%A8%E9%83%A8%E8%8A%B1%E7%A8%AE&#x27;)%20:%20&#x27;%EF%BD%9C%E4%B8%8D%E4%BE%9D%E7%AF%A9%E9%81%B8&#x27;)%20+%20(lastLoad%20?%20&#x27;%EF%BD%9C%E8%B3%87%E6%96%99%20&#x27;%20+%20hm(lastLoad)%20:%20&#x27;&#x27;)%20+%20(mon.on%20&amp;&amp;%20mon.next%20?%20&#x27;%EF%BD%9C%E4%B8%8B%E6%AC%A1%E6%9B%B4%E6%96%B0%20&#x27;%20+%20hm(mon.next)%20:%20&#x27;&#x27;);%7Dst.textContent%20=%20txt;box.querySelector(&#x27;.hs&#x27;).textContent%20=%20(mon.on%20?%20&#x27;%F0%9F%8C%88%20%E7%9B%A3%E7%9C%8B%E4%B8%AD&#x27;%20:%20&#x27;%E6%9C%AA%E7%9B%A3%E7%9C%8B&#x27;)%20+%20&#x27;%EF%BD%9C&#x27;%20+%20rs.length%20+%20&#x27;%20%E6%9C%B5&#x27;;%7Dfunction%20waitResp(ms)%20%7Breturn%20new%20Promise(function%20(res)%20%7Bvar%20done%20=%20false,%20f%20=%20function%20()%20%7B%20if%20(!done)%20%7B%20done%20=%20true;%20res(true);%20%7D%20%7D;waiters.push(f);%20setTimeout(function%20()%20%7B%20if%20(!done)%20%7B%20done%20=%20true;%20res(false);%20%7D%20%7D,%20ms);%7D);%7Dfunction%20sleep(ms)%20%7B%20return%20new%20Promise(function%20(r)%20%7B%20setTimeout(r,%20ms);%20%7D);%20%7Dfunction%20clickReload()%20%7B%20var%20b%20=%20document.getElementById(&#x27;mfLoadingButton&#x27;);%20if%20(b)%20b.click();%20%7Dfunction%20expandAreas(arr)%20%7Bvar%20out%20=%20%5B%5D,%20mz%20=%20minZoom(),%20size%20=%20theMap.getSize();arr.forEach(function%20(a)%20%7Bvar%20z%20=%20a.zoom%20%7C%7C%2016;if%20(z%20%3E=%20mz)%20%7B%20out.push(%7B%20name:%20a.name,%20label:%20a.name,%20lat:%20a.lat,%20lng:%20a.lng,%20zoom:%20z%20%7D);%20return;%20%7Dvar%20n%20=%20Math.min(4,%20Math.pow(2,%20mz%20-%20z)),%20c%20=%20theMap.project(%5Ba.lat,%20a.lng%5D,%20mz),%20k%20=%200;for%20(var%20yi%20=%200;%20yi%20%3C%20n;%20yi++)%20for%20(var%20xi%20=%200;%20xi%20%3C%20n;%20xi++)%20%7Bvar%20pt%20=%20L.point(c.x%20+%20(xi%20-%20(n%20-%201)%20/%202)%20*%20size.x,%20c.y%20+%20(yi%20-%20(n%20-%201)%20/%202)%20*%20size.y);var%20ll%20=%20theMap.unproject(pt,%20mz);out.push(%7B%20name:%20a.name,%20label:%20a.name%20+%20&#x27;%20%E7%AC%AC%20&#x27;%20+%20(++k)%20+%20&#x27;/&#x27;%20+%20(n%20*%20n)%20+%20&#x27;%20%E6%A0%BC&#x27;,%20lat:%20ll.lat,%20lng:%20ll.lng,%20zoom:%20mz%20%7D);%7D%7D);return%20out;%7Dfunction%20sweep()%20%7Bif%20(mon.sweeping)%20return%20Promise.resolve();var%20rot%20=%20box.querySelector(&#x27;.rt&#x27;).checked%20&amp;&amp;%20areas.length%20&amp;&amp;%20theMap;if%20(!rot)%20%7B%20curArea%20=%20&#x27;&#x27;;%20clickReload();%20return%20Promise.resolve();%20%7Dmon.sweeping%20=%20true;var%20orig%20=%20%7B%20c:%20theMap.getCenter(),%20z:%20theMap.getZoom()%20%7D,%20list2%20=%20expandAreas(areas),%20i%20=%200;sweepCounts%20=%20%7B%7D;%20areas.forEach(function%20(a)%20%7B%20sweepCounts%5Ba.name%5D%20=%200;%20%7D);function%20step()%20%7Bif%20(i%20%3E=%20list2.length)%20return%20Promise.resolve();var%20a%20=%20list2%5Bi++%5D;%20curArea%20=%20a.name;mon.sweepMsg%20=%20&#x27;%E6%AD%A3%E5%9C%A8%E6%AA%A2%E6%9F%A5%20&#x27;%20+%20a.label%20+%20&#x27;%EF%BC%88&#x27;%20+%20i%20+%20&#x27;/&#x27;%20+%20list2.length%20+%20&#x27;%EF%BC%89&#x27;;%20renderRainbow();var%20c%20=%20theMap.getCenter(),%20same%20=%20Math.abs(c.lat%20-%20a.lat)%20%3C%201e-6%20&amp;&amp;%20Math.abs(c.lng%20-%20a.lng)%20%3C%201e-6%20&amp;&amp;%20theMap.getZoom()%20===%20a.zoom;var%20w%20=%20waitResp(same%20?%205000%20:%203000);if%20(same)%20clickReload();%20else%20theMap.setView(%5Ba.lat,%20a.lng%5D,%20a.zoom,%20%7B%20animate:%20false%20%7D);return%20w.then(function%20(ok)%20%7Bif%20(ok)%20return%20sleep(600);var%20w2%20=%20waitResp(5000);%20clickReload();%20return%20w2.then(function%20()%20%7B%20return%20sleep(600);%20%7D);%7D).then(step);%7Dreturn%20step().then(function%20()%20%7BcurArea%20=%20&#x27;&#x27;;%20mon.sweepMsg%20=%20&#x27;&#x27;;%20mon.lastCounts%20=%20sweepCounts;%20sweepCounts%20=%20null;theMap.setView(orig.c,%20orig.z,%20%7B%20animate:%20false%20%7D);return%20sleep(600);%7D).then(function%20()%20%7B%20mon.sweeping%20=%20false;%20renderRainbow();%20%7D,%20function%20()%20%7B%20mon.sweeping%20=%20false;%20mon.sweepMsg%20=%20&#x27;&#x27;;%20curArea%20=%20&#x27;&#x27;;%20sweepCounts%20=%20null;%20%7D);%7Dfunction%20refreshData()%20%7Bmon.next%20=%20Date.now()%20+%20(+box.querySelector(&#x27;.iv&#x27;).value)%20*%2060000;sweep();%7Dfunction%20schedule()%20%7BclearInterval(mon.timer);mon.timer%20=%20setInterval(refreshData,%20(+box.querySelector(&#x27;.iv&#x27;).value)%20*%2060000);mon.next%20=%20Date.now()%20+%20(+box.querySelector(&#x27;.iv&#x27;).value)%20*%2060000;%7Dbox.querySelector(&#x27;.go&#x27;).onclick%20=%20function%20()%20%7Bmon.on%20=%20!mon.on;this.setAttribute(&#x27;aria-pressed&#x27;,%20String(mon.on));this.textContent%20=%20mon.on%20?%20&#x27;%E5%81%9C%E6%AD%A2%E7%9B%A3%E7%9C%8B&#x27;%20:%20&#x27;%E9%96%8B%E5%A7%8B%E7%9B%A3%E7%9C%8B&#x27;;if%20(mon.on)%20%7Btry%20%7B%20if%20(!mon.audio)%20mon.audio%20=%20new%20(window.AudioContext%20%7C%7C%20window.webkitAudioContext)();%20mon.audio.resume();%20%7D%20catch%20(e)%20%7B%7Dtry%20%7B%20if%20(window.Notification%20&amp;&amp;%20Notification.permission%20===%20&#x27;default&#x27;)%20Notification.requestPermission();%20%7D%20catch%20(e)%20%7B%7Dmon.seen%20=%20%7B%7D;schedule();%20refreshData();msg(&#x27;%E9%96%8B%E5%A7%8B%E7%9B%A3%E7%9C%8B%EF%BC%8C%E6%AF%8F%20&#x27;%20+%20box.querySelector(&#x27;.iv&#x27;).value%20+%20&#x27;%20%E5%88%86%E9%90%98%E6%9B%B4%E6%96%B0&#x27;);%7D%20else%20%7B%20clearInterval(mon.timer);%20mon.next%20=%200;%20stopFlash();%20msg(&#x27;%E5%B7%B2%E5%81%9C%E6%AD%A2%E7%9B%A3%E7%9C%8B&#x27;);%20%7DrenderRainbow();%7D;box.querySelector(&#x27;.iv&#x27;).onchange%20=%20function%20()%20%7B%20if%20(mon.on)%20%7B%20schedule();%20renderRainbow();%20%7D%20saveOpts();%20%7D;var%20OKEY%20=%20&#x27;mfCollector.opts&#x27;;function%20saveOpts(skip)%20%7B%20try%20%7B%20localStorage.setItem(OKEY,%20JSON.stringify(%7B%20rot:%20box.querySelector(&#x27;.rt&#x27;).checked,%20uf:%20box.querySelector(&#x27;.uf&#x27;).checked,%20iv:%20box.querySelector(&#x27;.iv&#x27;).value%20%7D));%20%7D%20catch%20(e)%20%7B%7D%20if%20(!skip)%20markDirty();%20%7Dtry%20%7B%20var%20o%20=%20JSON.parse(localStorage.getItem(OKEY)%20%7C%7C%20&#x27;%7B%7D&#x27;)%20%7C%7C%20%7B%7D;%20box.querySelector(&#x27;.rt&#x27;).checked%20=%20!!o.rot;%20if%20(o.uf%20===%20false)%20box.querySelector(&#x27;.uf&#x27;).checked%20=%20false;%20if%20(o.iv)%20box.querySelector(&#x27;.iv&#x27;).value%20=%20o.iv;%20%7D%20catch%20(e)%20%7B%7Dbox.querySelector(&#x27;.uf&#x27;).onchange%20=%20function%20()%20%7B%20saveOpts();%20mon.key%20=%20null;%20renderRainbow();%20msg(this.checked%20?%20&#x27;%E5%8F%AA%E7%9B%A3%E7%9C%8B%E7%AF%A9%E9%81%B8%E5%99%A8%E5%8B%BE%E9%81%B8%E7%9A%84%E8%8A%B1%E7%A8%AE&#x27;%20:%20&#x27;%E7%9B%A3%E7%9C%8B%E5%85%A8%E9%83%A8%E8%8A%B1%E7%A8%AE&#x27;);%20%7D;box.querySelector(&#x27;.rt&#x27;).onchange%20=%20function%20()%20%7BsaveOpts();if%20(this.checked%20&amp;&amp;%20!areas.length)%20msg(&#x27;%E9%82%84%E6%B2%92%E6%9C%89%E5%B8%B8%E7%94%A8%E5%8D%80%E5%9F%9F%EF%BC%8C%E8%AB%8B%E5%85%88%E6%8C%89%E3%80%8C%E5%AD%98%E7%9B%AE%E5%89%8D%E7%95%AB%E9%9D%A2%E3%80%8D&#x27;);else%20if%20(this.checked)%20msg(&#x27;%E6%AF%8F%E6%AC%A1%E6%9B%B4%E6%96%B0%E6%9C%83%E8%BC%AA%E6%B5%81%E6%AA%A2%E6%9F%A5%20&#x27;%20+%20areas.length%20+%20&#x27;%20%E5%80%8B%E5%8D%80%E5%9F%9F&#x27;);%7D;mon.tick%20=%20setInterval(renderRainbow,%205000);var%20MKEY%20=%20&#x27;mfCollector.mail&#x27;,%20mail%20=%20%7B%20on:%20false,%20url:%20&#x27;&#x27;,%20token:%20&#x27;&#x27;%20%7D,%20mailQ%20=%20%5B%5D,%20mailBusy%20=%20false;try%20%7B%20var%20mm%20=%20JSON.parse(localStorage.getItem(MKEY)%20%7C%7C%20&#x27;%7B%7D&#x27;)%20%7C%7C%20%7B%7D;%20mail.on%20=%20!!mm.on;%20mail.url%20=%20mm.url%20%7C%7C%20&#x27;&#x27;;%20mail.token%20=%20mm.token%20%7C%7C%20&#x27;&#x27;;%20%7D%20catch%20(e)%20%7B%7Dbox.querySelector(&#x27;.mon&#x27;).checked%20=%20mail.on;%20box.querySelector(&#x27;.murl&#x27;).value%20=%20mail.url;%20box.querySelector(&#x27;.mtok&#x27;).value%20=%20mail.token;function%20mstat(t)%20%7B%20box.querySelector(&#x27;.ms&#x27;).textContent%20=%20t;%20%7Dfunction%20readMailForm()%20%7Bmail.on%20=%20box.querySelector(&#x27;.mon&#x27;).checked;%20mail.url%20=%20box.querySelector(&#x27;.murl&#x27;).value.trim();%20mail.token%20=%20box.querySelector(&#x27;.mtok&#x27;).value;try%20%7B%20localStorage.setItem(MKEY,%20JSON.stringify(mail));%20%7D%20catch%20(e)%20%7B%7D%7Dfunction%20postGas(body)%20%7B%20return%20postMail(body);%20%7Dfunction%20postMail(body)%20%7Bvar%20opt%20=%20%7B%20method:%20&#x27;POST&#x27;,%20headers:%20%7B%20&#x27;Content-Type&#x27;:%20&#x27;text/plain;charset=utf-8&#x27;%20%7D,%20body:%20JSON.stringify(body),%20redirect:%20&#x27;follow&#x27;%20%7D;return%20fetch(mail.url,%20opt).then(function%20(r)%20%7B%20return%20r.json();%20%7D).catch(function%20()%20%7Bopt.mode%20=%20&#x27;no-cors&#x27;;return%20fetch(mail.url,%20opt).then(function%20()%20%7B%20return%20%7B%20ok:%20true,%20sent:%20true,%20unknown:%20true%20%7D;%20%7D);%7D);%7Dfunction%20mailItem(it)%20%7B%20var%20hs%20=%20routeHits(it).slice(0,%203);%20return%20%7B%20area:%20it.__area%20%7C%7C%20&#x27;&#x27;,%20title:%20it.title%20%7C%7C%20&#x27;&#x27;,%20displayName:%20it.displayName%20%7C%7C%20&#x27;&#x27;,%20remain:%20hms(remain(it)),%20lat:%20it.lat,%20lng:%20it.lng,%20routes:%20hs.map(function%20(h)%20%7B%20return%20%7B%20name:%20h.name,%20station:%20h.idx%20%7D;%20%7D)%20%7D;%20%7Dfunction%20queueMail(items)%20%7B%20if%20(!mail.on%20%7C%7C%20!mail.url)%20return;%20items.forEach(function%20(it)%20%7B%20mailQ.push(mailItem(it));%20%7D);%20flushMail();%20%7Dfunction%20flushMail()%20%7Bif%20(mailBusy%20%7C%7C%20!mailQ.length%20%7C%7C%20!mail.on%20%7C%7C%20!mail.url)%20return;mailBusy%20=%20true;%20var%20batch%20=%20mailQ.slice();var%20fileNames%20=%20%5B%5D,%20files%20=%20%5B%5D;batch.forEach(function%20(b)%20%7B%20(b.routes%20%7C%7C%20%5B%5D).forEach(function%20(rr)%20%7B%20if%20(fileNames.indexOf(rr.name)%20%3C%200%20&amp;&amp;%20fileNames.length%20%3C%205)%20fileNames.push(rr.name);%20%7D);%20%7D);fileNames.forEach(function%20(n)%20%7B%20var%20r0%20=%20routes.filter(function%20(x)%20%7B%20return%20x.name%20===%20n;%20%7D)%5B0%5D;%20if%20(r0)%20files.push(%7B%20name:%20n,%20gpx:%20routeGpx(r0)%20%7D);%20%7D);postMail(%7B%20token:%20mail.token,%20items:%20batch,%20files:%20files,%20device:%20dev.id%20%7D).then(function%20(r)%20%7Bif%20(r%20&amp;&amp;%20r.notNotifier)%20%7B%20mailQ%20=%20%5B%5D;%20mstat(&#x27;%E9%80%99%E5%8F%B0%E4%B8%8D%E6%98%AF%E9%80%9A%E7%9F%A5%E9%9B%BB%E8%85%A6%EF%BC%8C%E5%8F%AA%E7%9B%A3%E7%9C%8B%E4%B8%8D%E9%80%9A%E7%9F%A5&#x27;);%20return;%20%7Dif%20(r%20&amp;&amp;%20r.ok%20&amp;&amp;%20r.sent)%20%7B%20mailQ%20=%20mailQ.slice(batch.length);%20mstat(&#x27;%E5%B7%B2%E9%80%81%E5%87%BA%20&#x27;%20+%20batch.length%20+%20&#x27;%20%E6%9C%B5%E7%9A%84%E9%80%9A%E7%9F%A5%EF%BC%88&#x27;%20+%20hm(Date.now())%20+%20&#x27;%EF%BC%89&#x27;%20+%20(r.unknown%20?%20&#x27;%EF%BC%8C%E7%84%A1%E6%B3%95%E7%A2%BA%E8%AA%8D%E7%B5%90%E6%9E%9C&#x27;%20:%20&#x27;&#x27;));%20%7Delse%20if%20(r%20&amp;&amp;%20r.ok%20===%20false)%20%7B%20mailQ%20=%20%5B%5D;%20mstat(&#x27;%E5%AF%84%E4%BF%A1%E5%A4%B1%E6%95%97%EF%BC%9A&#x27;%20+%20(r.error%20%7C%7C%20&#x27;%E6%9C%AA%E7%9F%A5%E5%8E%9F%E5%9B%A0&#x27;));%20%7Delse%20%7B%20mstat(&#x27;%E7%A8%8D%E5%BE%8C%E5%86%8D%E5%AF%84%EF%BC%9A&#x27;%20+%20((r%20&amp;&amp;%20r.reason)%20%7C%7C%20&#x27;&#x27;));%20%7D%7D,%20function%20()%20%7B%20mstat(&#x27;%E5%AF%84%E4%BF%A1%E5%A4%B1%E6%95%97%EF%BC%9A%E9%80%A3%E4%B8%8D%E5%88%B0%E5%AF%84%E4%BF%A1%E7%B6%B2%E5%9D%80&#x27;);%20%7D).then(function%20()%20%7B%20mailBusy%20=%20false;%20%7D);%7DsetInterval(flushMail,%2030000);var%20DKEY%20=%20&#x27;mfCollector.device&#x27;,%20SKEY%20=%20&#x27;mfCollector.syncAt&#x27;,%20dev%20=%20%7B%7D,%20syncAt%20=%200,%20dirtyT%20=%200,%20notifier%20=%20null;try%20%7B%20dev%20=%20JSON.parse(localStorage.getItem(DKEY)%20%7C%7C%20&#x27;%7B%7D&#x27;)%20%7C%7C%20%7B%7D;%20%7D%20catch%20(e)%20%7B%20dev%20=%20%7B%7D;%20%7Dif%20(!dev.id)%20%7B%20dev.id%20=%20&#x27;d&#x27;%20+%20Date.now().toString(36)%20+%20Math.random().toString(36).slice(2,%208);%20try%20%7B%20localStorage.setItem(DKEY,%20JSON.stringify(dev));%20%7D%20catch%20(e)%20%7B%7D%20%7Dtry%20%7B%20syncAt%20=%20+localStorage.getItem(SKEY)%20%7C%7C%200;%20%7D%20catch%20(e)%20%7B%7Dbox.querySelector(&#x27;.mdev&#x27;).value%20=%20dev.name%20%7C%7C%20&#x27;&#x27;;function%20sstat(t)%20%7B%20box.querySelector(&#x27;.ms2&#x27;).textContent%20=%20t;%20%7Dfunction%20canSync()%20%7B%20return%20!!(mail.url%20&amp;&amp;%20mail.token);%20%7Dfunction%20notText()%20%7Bif%20(!notifier%20%7C%7C%20!notifier.id)%20return%20&#x27;%E5%B0%9A%E6%9C%AA%E6%8C%87%E5%AE%9A%E9%80%9A%E7%9F%A5%E9%9B%BB%E8%85%A6%EF%BC%88%E7%9B%AE%E5%89%8D%E6%AF%8F%E5%8F%B0%E9%83%BD%E5%8F%AF%E9%80%9A%E7%9F%A5%EF%BC%89&#x27;;return%20&#x27;%E9%80%9A%E7%9F%A5%E9%9B%BB%E8%85%A6%EF%BC%9A&#x27;%20+%20(notifier.name%20%7C%7C%20&#x27;%E6%9C%AA%E5%91%BD%E5%90%8D&#x27;)%20+%20(notifier.id%20===%20dev.id%20?%20&#x27;%EF%BC%88%E5%B0%B1%E6%98%AF%E9%80%99%E5%8F%B0%EF%BC%89&#x27;%20:%20&#x27;%EF%BC%88%E4%B8%8D%E6%98%AF%E9%80%99%E5%8F%B0%EF%BC%8C%E9%80%99%E5%8F%B0%E5%8F%AA%E7%9B%A3%E7%9C%8B%E4%B8%8D%E9%80%9A%E7%9F%A5%EF%BC%89&#x27;);%7Dfunction%20setSyncAt(t)%20%7B%20syncAt%20=%20t;%20try%20%7B%20localStorage.setItem(SKEY,%20String(t));%20%7D%20catch%20(e)%20%7B%7D%20%7Dfunction%20markDirty()%20%7BsetSyncAt(Date.now());if%20(!canSync())%20return;clearTimeout(dirtyT);%20dirtyT%20=%20setTimeout(pushSettings,%203000);sstat(&#x27;%E8%A8%AD%E5%AE%9A%E5%B7%B2%E8%AE%8A%E6%9B%B4%EF%BC%8C%E6%BA%96%E5%82%99%E5%90%8C%E6%AD%A5%E2%80%A6&#x27;);%7Dfunction%20collectSettings()%20%7Breturn%20%7B%20list:%20list,%20areas:%20areas,%20routes:%20routes,%20opts:%20%7B%20rot:%20box.querySelector(&#x27;.rt&#x27;).checked,%20uf:%20box.querySelector(&#x27;.uf&#x27;).checked,%20iv:%20box.querySelector(&#x27;.iv&#x27;).value%20%7D%20%7D;%7Dfunction%20pushSettings()%20%7Bif%20(!canSync())%20return%20Promise.resolve();clearTimeout(dirtyT);%20dirtyT%20=%200;if%20(!syncAt)%20setSyncAt(Date.now());return%20postGas(%7B%20token:%20mail.token,%20action:%20&#x27;saveSettings&#x27;,%20settings:%20collectSettings(),%20updatedAt:%20syncAt,%20device:%20dev.id,%20deviceName:%20dev.name%20%7C%7C%20&#x27;&#x27;%20%7D).then(function%20(r)%20%7Bif%20(r%20&amp;&amp;%20r.ok%20&amp;&amp;%20!r.unknown)%20sstat(&#x27;%E5%B7%B2%E4%B8%8A%E5%82%B3%E5%90%8C%E6%AD%A5%20&#x27;%20+%20hm(Date.now())%20+%20&#x27;%EF%BD%9C&#x27;%20+%20notText());else%20sstat(&#x27;%E4%B8%8A%E5%82%B3%E5%A4%B1%E6%95%97%EF%BC%9A&#x27;%20+%20((r%20&amp;&amp;%20(r.error%20%7C%7C%20r.reason))%20%7C%7C%20&#x27;%E9%80%A3%E5%BE%97%E5%88%B0%20GAS%20%E4%BD%86%E8%AE%80%E4%B8%8D%E5%88%B0%E5%9B%9E%E6%87%89%EF%BC%8C%E5%8F%AF%E8%83%BD%E8%A2%AB%E7%B6%B2%E8%B7%AF%E9%81%8E%E6%BF%BE%E6%93%8B%E4%BD%8F%EF%BC%8C%E6%88%96%20GAS%20%E7%89%88%E6%9C%AC%E5%A4%AA%E8%88%8A&#x27;));%7D,%20function%20()%20%7B%20sstat(&#x27;%E4%B8%8A%E5%82%B3%E5%A4%B1%E6%95%97%EF%BC%9A%E9%80%A3%E4%B8%8D%E5%88%B0%20GAS&#x27;);%20%7D);%7Dfunction%20applySettings(st)%20%7Bif%20(Array.isArray(st.list))%20%7B%20list%20=%20st.list;%20save(true);%20render();%20syncButtons();%20%7Dif%20(Array.isArray(st.areas))%20%7B%20areas%20=%20st.areas;%20saveAreas(true);%20renderAreas();%20%7Dif%20(Array.isArray(st.routes))%20%7B%20routes%20=%20st.routes;%20saveRoutes(true);%20renderRoutes();%20mon.key%20=%20null;%20%7Dif%20(st.opts)%20%7Bbox.querySelector(&#x27;.rt&#x27;).checked%20=%20!!st.opts.rot;box.querySelector(&#x27;.uf&#x27;).checked%20=%20st.opts.uf%20!==%20false;if%20(st.opts.iv)%20box.querySelector(&#x27;.iv&#x27;).value%20=%20st.opts.iv;saveOpts(true);%20if%20(mon.on)%20schedule();%20mon.key%20=%20null;%20renderRainbow();%7D%7Dfunction%20pullSettings(force)%20%7Bif%20(!canSync()%20%7C%7C%20dirtyT)%20return%20Promise.resolve();return%20postGas(%7B%20token:%20mail.token,%20action:%20&#x27;getSettings&#x27;%20%7D).then(function%20(r)%20%7Bif%20(!r%20%7C%7C%20r.unknown)%20%7B%20sstat(&#x27;%E5%90%8C%E6%AD%A5%E5%A4%B1%E6%95%97%EF%BC%9A%E9%80%A3%E5%BE%97%E5%88%B0%20GAS%20%E4%BD%86%E8%AE%80%E4%B8%8D%E5%88%B0%E5%9B%9E%E6%87%89%EF%BC%8C%E5%8F%AF%E8%83%BD%E8%A2%AB%E7%B6%B2%E8%B7%AF%E9%81%8E%E6%BF%BE%E6%93%8B%E4%BD%8F%EF%BC%8C%E6%88%96%20GAS%20%E7%89%88%E6%9C%AC%E5%A4%AA%E8%88%8A&#x27;);%20return;%20%7Dif%20(!r.ok)%20%7B%20sstat(&#x27;%E5%90%8C%E6%AD%A5%E5%A4%B1%E6%95%97%EF%BC%9A&#x27;%20+%20(r.error%20%7C%7C%20&#x27;%E6%9C%AA%E7%9F%A5%E5%8E%9F%E5%9B%A0&#x27;));%20return;%20%7Dnotifier%20=%20r.notifier%20%7C%7C%20null;if%20(!r.settings)%20%7B%20sstat(&#x27;%E9%9B%B2%E7%AB%AF%E9%82%84%E6%B2%92%E6%9C%89%E8%A8%AD%E5%AE%9A%EF%BC%8C%E4%B8%8A%E5%82%B3%E9%80%99%E5%8F%B0%E7%9A%84%E8%A8%AD%E5%AE%9A%E2%80%A6&#x27;);%20return%20pushSettings();%20%7Dif%20(force%20%7C%7C%20!syncAt%20%7C%7C%20(r.updatedAt%20%7C%7C%200)%20%3E%20syncAt)%20%7B%20applySettings(r.settings);%20setSyncAt(r.updatedAt%20%7C%7C%20Date.now());%20sstat(&#x27;%E5%B7%B2%E4%B8%8B%E8%BC%89%E9%9B%B2%E7%AB%AF%E8%A8%AD%E5%AE%9A%20&#x27;%20+%20hm(Date.now())%20+%20&#x27;%EF%BD%9C&#x27;%20+%20notText());%20%7Delse%20sstat(&#x27;%E5%B7%B2%E5%90%8C%E6%AD%A5%20&#x27;%20+%20hm(Date.now())%20+%20&#x27;%EF%BD%9C&#x27;%20+%20notText());%7D,%20function%20()%20%7B%20sstat(&#x27;%E5%90%8C%E6%AD%A5%E5%A4%B1%E6%95%97%EF%BC%9A%E9%80%A3%E4%B8%8D%E5%88%B0%20GAS&#x27;);%20%7D);%7DsetInterval(function%20()%20%7B%20pullSettings(false);%20%7D,%20300000);box.querySelector(&#x27;.msync&#x27;).onclick%20=%20function%20()%20%7B%20readMailForm();%20if%20(!canSync())%20%7B%20sstat(&#x27;%E8%AB%8B%E5%85%88%E5%A1%AB%20GAS%20%E7%B6%B2%E5%9D%80%E8%88%87%E9%80%9A%E9%97%9C%E5%AF%86%E7%A2%BC&#x27;);%20return;%20%7D%20sstat(&#x27;%E5%90%8C%E6%AD%A5%E4%B8%AD%E2%80%A6&#x27;);%20if%20(dirtyT)%20pushSettings();%20else%20pullSettings(false);%20%7D;box.querySelector(&#x27;.mpush&#x27;).onclick%20=%20function%20()%20%7B%20readMailForm();%20if%20(!canSync())%20%7B%20sstat(&#x27;%E8%AB%8B%E5%85%88%E5%A1%AB%20GAS%20%E7%B6%B2%E5%9D%80%E8%88%87%E9%80%9A%E9%97%9C%E5%AF%86%E7%A2%BC&#x27;);%20return;%20%7D%20setSyncAt(Date.now());%20sstat(&#x27;%E4%B8%8A%E5%82%B3%E4%B8%AD%E2%80%A6&#x27;);%20pushSettings();%20%7D;box.querySelector(&#x27;.mnot&#x27;).onclick%20=%20function%20()%20%7BreadMailForm();if%20(!canSync())%20%7B%20sstat(&#x27;%E8%AB%8B%E5%85%88%E5%A1%AB%20GAS%20%E7%B6%B2%E5%9D%80%E8%88%87%E9%80%9A%E9%97%9C%E5%AF%86%E7%A2%BC&#x27;);%20return;%20%7Dif%20(!dev.name)%20%7B%20sstat(&#x27;%E8%AB%8B%E5%85%88%E5%9C%A8%E3%80%8C%E9%80%99%E5%8F%B0%E9%9B%BB%E8%85%A6%E5%90%8D%E7%A8%B1%E3%80%8D%E5%A1%AB%E5%90%8D%E5%AD%97%EF%BC%8C%E4%BE%8B%E5%A6%82%EF%BC%9A%E5%AE%B6%E8%A3%A1%E6%A1%8C%E6%A9%9F&#x27;);%20return;%20%7DpostGas(%7B%20token:%20mail.token,%20action:%20&#x27;setNotifier&#x27;,%20device:%20dev.id,%20deviceName:%20dev.name%20%7D).then(function%20(r)%20%7Bif%20(r%20&amp;&amp;%20r.ok%20&amp;&amp;%20!r.unknown)%20%7B%20notifier%20=%20%7B%20id:%20dev.id,%20name:%20dev.name%20%7D;%20sstat(&#x27;%E5%B7%B2%E8%A8%AD%E7%82%BA%E9%80%9A%E7%9F%A5%E9%9B%BB%E8%85%A6%EF%BD%9C&#x27;%20+%20notText());%20%7Delse%20sstat(&#x27;%E8%A8%AD%E5%AE%9A%E5%A4%B1%E6%95%97%EF%BC%9A&#x27;%20+%20((r%20&amp;&amp;%20(r.error%20%7C%7C%20r.reason))%20%7C%7C%20&#x27;%E9%80%A3%E5%BE%97%E5%88%B0%20GAS%20%E4%BD%86%E8%AE%80%E4%B8%8D%E5%88%B0%E5%9B%9E%E6%87%89%EF%BC%8C%E5%8F%AF%E8%83%BD%E8%A2%AB%E7%B6%B2%E8%B7%AF%E9%81%8E%E6%BF%BE%E6%93%8B%E4%BD%8F%EF%BC%8C%E6%88%96%20GAS%20%E7%89%88%E6%9C%AC%E5%A4%AA%E8%88%8A&#x27;));%7D,%20function%20()%20%7B%20sstat(&#x27;%E8%A8%AD%E5%AE%9A%E5%A4%B1%E6%95%97%EF%BC%9A%E9%80%A3%E4%B8%8D%E5%88%B0%20GAS&#x27;);%20%7D);%7D;box.querySelector(&#x27;.mdev&#x27;).onchange%20=%20function%20()%20%7B%20dev.name%20=%20this.value.trim();%20try%20%7B%20localStorage.setItem(DKEY,%20JSON.stringify(dev));%20%7D%20catch%20(e)%20%7B%7D%20%7D;box.querySelector(&#x27;.msave&#x27;).onclick%20=%20function%20()%20%7B%20readMailForm();%20dev.name%20=%20box.querySelector(&#x27;.mdev&#x27;).value.trim();%20try%20%7B%20localStorage.setItem(DKEY,%20JSON.stringify(dev));%20%7D%20catch%20(e)%20%7B%7D%20mstat(mail.on%20?%20&#x27;%E5%B7%B2%E5%84%B2%E5%AD%98%EF%BC%8C%E9%80%9A%E7%9F%A5%E9%96%8B%E5%95%9F&#x27;%20:%20&#x27;%E5%B7%B2%E5%84%B2%E5%AD%98%EF%BC%8C%E9%80%9A%E7%9F%A5%E9%97%9C%E9%96%89&#x27;);%20pullSettings(false);%20%7D;box.querySelector(&#x27;.mon&#x27;).onchange%20=%20function%20()%20%7B%20readMailForm();%20mstat(mail.on%20?%20&#x27;%E9%80%9A%E7%9F%A5%E9%96%8B%E5%95%9F&#x27;%20:%20&#x27;%E9%80%9A%E7%9F%A5%E9%97%9C%E9%96%89&#x27;);%20%7D;box.querySelector(&#x27;.mtest&#x27;).onclick%20=%20function%20()%20%7BreadMailForm();if%20(!mail.url)%20%7B%20mstat(&#x27;%E8%AB%8B%E5%85%88%E5%A1%AB%20GAS%20%E7%B6%B2%E5%9D%80&#x27;);%20return;%20%7Dmstat(&#x27;%E5%AF%84%E9%80%81%E4%B8%AD%E2%80%A6&#x27;);postMail(%7B%20token:%20mail.token,%20test:%20true%20%7D).then(function%20(r)%20%7Bif%20(r%20&amp;&amp;%20r.ok%20&amp;&amp;%20r.sent)%20mstat(r.unknown%20?%20&#x27;%E5%B7%B2%E9%80%81%E5%87%BA%EF%BC%8C%E8%AB%8B%E5%88%B0%20Telegram%20%E7%A2%BA%E8%AA%8D%E6%9C%89%E6%B2%92%E6%9C%89%E6%94%B6%E5%88%B0&#x27;%20:%20&#x27;%E6%B8%AC%E8%A9%A6%E9%80%9A%E7%9F%A5%E5%B7%B2%E9%80%81%E5%87%BA%EF%BC%8C%E8%AB%8B%E5%88%B0%20Telegram%20%E7%A2%BA%E8%AA%8D&#x27;);else%20mstat(&#x27;%E5%A4%B1%E6%95%97%EF%BC%9A&#x27;%20+%20((r%20&amp;&amp;%20(r.error%20%7C%7C%20r.reason))%20%7C%7C%20&#x27;%E6%9C%AA%E7%9F%A5%E5%8E%9F%E5%9B%A0&#x27;));%7D,%20function%20()%20%7B%20mstat(&#x27;%E5%A4%B1%E6%95%97%EF%BC%9A%E9%80%A3%E4%B8%8D%E5%88%B0%20GAS%EF%BC%8C%E8%AB%8B%E7%A2%BA%E8%AA%8D%E7%B6%B2%E5%9D%80%E3%80%81%E9%83%A8%E7%BD%B2%E8%A8%AD%E5%AE%9A%E6%88%96%E7%B6%B2%E8%B7%AF%E9%81%8E%E6%BF%BE&#x27;);%20%7D);%7D;/*%20=====%20%E6%88%91%E7%9A%84%E8%B7%AF%E7%B7%9A%20=====%20*/var%20RTKEY%20=%20&#x27;mfCollector.routes&#x27;,%20routes%20=%20%5B%5D;try%20%7B%20routes%20=%20JSON.parse(localStorage.getItem(RTKEY)%20%7C%7C%20&#x27;%5B%5D&#x27;)%20%7C%7C%20%5B%5D;%20%7D%20catch%20(e)%20%7B%20routes%20=%20%5B%5D;%20%7Dfunction%20saveRoutes(skip)%20%7B%20try%20%7B%20localStorage.setItem(RTKEY,%20JSON.stringify(routes));%20%7D%20catch%20(e)%20%7B%7D%20if%20(!skip)%20markDirty();%20%7Dvar%20LATM%20=%200.000009;function%20stationSteps(lat,%20lon)%20%7Bvar%20out%20=%20%5B%5D,%20oM%20=%20LATM%20/%20Math.cos(lat%20*%20Math.PI%20/%20180),%20R%20=%2030;for%20(var%20j%20=%200;%20j%20%3C%206;%20j++)%20%7Bvar%20a%20=%20j%20*%2060%20*%20Math.PI%20/%20180,%20na%20=%20(j%20+%201)%20*%2060%20*%20Math.PI%20/%20180;out.push(%5Blat%20+%20R%20*%20Math.cos(a)%20*%20LATM,%20lon%20+%20R%20*%20Math.sin(a)%20*%20oM%5D);out.push(%5Blat%20+%20(R%20*%20Math.cos(a)%20+%20R%20*%20Math.cos(na))%20/%202%20*%20LATM,%20lon%20+%20(R%20*%20Math.sin(a)%20+%20R%20*%20Math.sin(na))%20/%202%20*%20oM%5D);%7Dout.push(%5Blat%20+%2015%20*%20LATM,%20lon%5D);%20out.push(%5Blat,%20lon%5D);%20out.push(%5Blat%20-%2015%20*%20LATM,%20lon%5D);%5B%5B15,%200%5D,%20%5B15,%2015%5D,%20%5B0,%2015%5D,%20%5B-15,%2015%5D,%20%5B-15,%200%5D,%20%5B-15,%20-15%5D,%20%5B0,%20-15%5D,%20%5B15,%20-15%5D,%20%5B15,%200%5D%5D.forEach(function%20(q)%20%7B%20out.push(%5Blat%20+%20q%5B0%5D%20*%20LATM,%20lon%20+%20q%5B1%5D%20*%20oM%5D);%20%7D);return%20out;%7Dfunction%20xesc(t)%20%7B%20return%20String(t).replace(/%5B%3C%3E&amp;%22&#x27;%5D/g,%20function%20(c)%20%7B%20return%20%7B%20&#x27;%3C&#x27;:%20&#x27;&amp;lt;&#x27;,%20&#x27;%3E&#x27;:%20&#x27;&amp;gt;&#x27;,%20&#x27;&amp;&#x27;:%20&#x27;&amp;amp;&#x27;,%20&#x27;%22&#x27;:%20&#x27;&amp;quot;&#x27;,%20%22&#x27;%22:%20&#x27;&amp;apos;&#x27;%20%7D%5Bc%5D;%20%7D);%20%7Dfunction%20routeGpx(r)%20%7Bvar%20g%20=%20&#x27;%3C?xml%20version=%221.0%22%20encoding=%22UTF-8%22?%3E%5Cn%3Cgpx%20version=%221.1%22%20creator=%22Suderpanda%22%3E%5Cn%20%20%3Ctrk%3E%3Cname%3E&#x27;%20+%20xesc(r.name)%20+%20&#x27;%3C/name%3E%3Ctrkseg%3E%5Cn&#x27;;r.c.forEach(function%20(c)%20%7B%20stationSteps(c%5B0%5D,%20c%5B1%5D).forEach(function%20(p)%20%7B%20g%20+=%20&#x27;%20%20%20%20%3Ctrkpt%20lat=%22&#x27;%20+%20p%5B0%5D.toFixed(7)%20+%20&#x27;%22%20lon=%22&#x27;%20+%20p%5B1%5D.toFixed(7)%20+%20&#x27;%22%3E%3C/trkpt%3E%5Cn&#x27;;%20%7D);%20%7D);return%20g%20+%20&#x27;%20%20%3C/trkseg%3E%3C/trk%3E%5Cn%3C/gpx%3E&#x27;;%7Dfunction%20downloadRoute(r)%20%7Bvar%20a%20=%20document.createElement(&#x27;a&#x27;);a.href%20=%20URL.createObjectURL(new%20Blob(%5BrouteGpx(r)%5D,%20%7B%20type:%20&#x27;application/gpx+xml&#x27;%20%7D));a.download%20=%20r.name.replace(/%5B%5C%5C/:*?%22%3C%3E%7C%5D/g,%20&#x27;_&#x27;)%20+%20&#x27;.gpx&#x27;;document.body.appendChild(a);%20a.click();%20a.remove();setTimeout(function%20()%20%7B%20URL.revokeObjectURL(a.href);%20%7D,%203000);msg(&#x27;%E5%B7%B2%E4%B8%8B%E8%BC%89%20&#x27;%20+%20r.name);%7Dfunction%20parseRouteGpx(text,%20fileName)%20%7Bvar%20pts%20=%20%5B%5D,%20re%20=%20/%3C(?:trkpt%7Cwpt%7Crtept)%5Cb(%5B%5E%3E%5D*)%3E/gi,%20m;while%20((m%20=%20re.exec(text)))%20%7Bvar%20la%20=%20m%5B1%5D.match(/%5Cblat%5Cs*=%5Cs*%5B%22&#x27;%5D(%5B%5E%22&#x27;%5D+)%5B%22&#x27;%5D/i),%20lo%20=%20m%5B1%5D.match(/%5Cblon%5Cs*=%5Cs*%5B%22&#x27;%5D(%5B%5E%22&#x27;%5D+)%5B%22&#x27;%5D/i);if%20(la%20&amp;&amp;%20lo)%20pts.push(%5BparseFloat(la%5B1%5D),%20parseFloat(lo%5B1%5D)%5D);%7Dif%20(!pts.length%20%7C%7C%20pts.length%20%25%2024)%20return%20null;var%20cs%20=%20%5B%5D;for%20(var%20b%20=%200;%20b%20%3C%20pts.length%20/%2024;%20b++)%20%7Bvar%20c%20=%20pts%5Bb%20*%2024%20+%2013%5D,%20up%20=%20pts%5Bb%20*%2024%20+%2012%5D,%20dn%20=%20pts%5Bb%20*%2024%20+%2014%5D;if%20(Math.abs(up%5B0%5D%20-%20c%5B0%5D%20-%2015%20*%20LATM)%20%3E%202e-6%20%7C%7C%20Math.abs(c%5B0%5D%20-%20dn%5B0%5D%20-%2015%20*%20LATM)%20%3E%202e-6%20%7C%7C%20Math.abs(up%5B1%5D%20-%20c%5B1%5D)%20%3E%202e-6)%20return%20null;cs.push(%5B+c%5B0%5D.toFixed(7),%20+c%5B1%5D.toFixed(7)%5D);%7Dvar%20nm%20=%20text.match(/%3Ctrk%3E%5Cs*%3Cname%3E(%5B%5E%3C%5D*)%3C%5C/name%3E/i);var%20name%20=%20(nm%20&amp;&amp;%20nm%5B1%5D.trim())%20%7C%7C%20String(fileName%20%7C%7C%20&#x27;&#x27;).replace(/%5C.gpx$/i,%20&#x27;&#x27;)%20%7C%7C%20(&#x27;%E8%B7%AF%E7%B7%9A%20&#x27;%20+%20(routes.length%20+%201));name%20=%20name.replace(/&amp;lt;/g,%20&#x27;%3C&#x27;).replace(/&amp;gt;/g,%20&#x27;%3E&#x27;).replace(/&amp;quot;/g,%20&#x27;%22&#x27;).replace(/&amp;apos;/g,%20%22&#x27;%22).replace(/&amp;amp;/g,%20&#x27;&amp;&#x27;);return%20%7B%20name:%20name,%20c:%20cs%20%7D;%7Dfunction%20routeHits(it)%20%7Bvar%20out%20=%20%5B%5D,%20cosL%20=%20Math.cos(it.lat%20*%20Math.PI%20/%20180);routes.forEach(function%20(r)%20%7Bvar%20best%20=%20null;r.c.forEach(function%20(c,%20i)%20%7Bvar%20d%20=%20Math.hypot((c%5B0%5D%20-%20it.lat)%20*%20111132,%20(c%5B1%5D%20-%20it.lng)%20*%20111132%20*%20cosL);if%20(d%20%3C=%2045%20&amp;&amp;%20(!best%20%7C%7C%20d%20%3C%20best.d))%20best%20=%20%7B%20d:%20d,%20idx:%20i%20+%201%20%7D;%7D);if%20(best)%20out.push(%7B%20name:%20r.name,%20idx:%20best.idx,%20d:%20best.d,%20route:%20r%20%7D);%7D);return%20out.sort(function%20(a,%20b)%20%7B%20return%20a.d%20-%20b.d;%20%7D);%7Dfunction%20renderRoutes()%20%7Bvar%20ul%20=%20box.querySelector(&#x27;.rlist&#x27;);%20ul.innerHTML%20=%20&#x27;&#x27;;box.querySelector(&#x27;.rc&#x27;).textContent%20=%20routes.length;if%20(!routes.length)%20%7B%20var%20e%20=%20document.createElement(&#x27;li&#x27;);%20e.textContent%20=%20&#x27;%E9%82%84%E6%B2%92%E6%9C%89%E8%B7%AF%E7%B7%9A%E3%80%82&#x27;;%20e.style.color%20=%20&#x27;%23475A6D&#x27;;%20ul.appendChild(e);%20return;%20%7Droutes.forEach(function%20(r,%20i)%20%7Bvar%20li%20=%20document.createElement(&#x27;li&#x27;);var%20n%20=%20document.createElement(&#x27;span&#x27;);%20n.className%20=%20&#x27;rn&#x27;;%20n.textContent%20=%20r.name;var%20sm%20=%20document.createElement(&#x27;small&#x27;);%20sm.textContent%20=%20r.c.length%20+%20&#x27;%20%E7%AB%99&#x27;;%20n.appendChild(sm);var%20d%20=%20document.createElement(&#x27;button&#x27;);%20d.type%20=%20&#x27;button&#x27;;%20d.textContent%20=%20&#x27;%E4%B8%8B%E8%BC%89&#x27;;%20d.setAttribute(&#x27;aria-label&#x27;,%20&#x27;%E4%B8%8B%E8%BC%89%20&#x27;%20+%20r.name);d.onclick%20=%20function%20()%20%7B%20downloadRoute(r);%20%7D;var%20x%20=%20document.createElement(&#x27;button&#x27;);%20x.type%20=%20&#x27;button&#x27;;%20x.textContent%20=%20&#x27;%C3%97&#x27;;%20x.setAttribute(&#x27;aria-label&#x27;,%20&#x27;%E5%88%AA%E9%99%A4%E8%B7%AF%E7%B7%9A%20&#x27;%20+%20r.name);%20x.style.color%20=%20&#x27;%23B3261E&#x27;;x.onclick%20=%20function%20()%20%7B%20if%20(!confirm(&#x27;%E5%88%AA%E9%99%A4%E8%B7%AF%E7%B7%9A%E3%80%8C&#x27;%20+%20r.name%20+%20&#x27;%E3%80%8D%EF%BC%9F&#x27;))%20return;%20routes.splice(i,%201);%20saveRoutes();%20renderRoutes();%20mon.key%20=%20null;%20renderRainbow();%20msg(&#x27;%E5%B7%B2%E5%88%AA%E9%99%A4%E8%B7%AF%E7%B7%9A&#x27;);%20%7D;li.appendChild(n);%20li.appendChild(d);%20li.appendChild(x);%20ul.appendChild(li);%7D);%7Dbox.querySelector(&#x27;.rimp&#x27;).onclick%20=%20function%20()%20%7B%20box.querySelector(&#x27;.rfile&#x27;).click();%20%7D;box.querySelector(&#x27;.rfile&#x27;).onchange%20=%20function%20()%20%7Bvar%20fs%20=%20Array.prototype.slice.call(this.files%20%7C%7C%20%5B%5D),%20ok%20=%200,%20bad%20=%20%5B%5D,%20done%20=%200,%20inp%20=%20this;if%20(!fs.length)%20return;fs.forEach(function%20(f)%20%7Bvar%20fr%20=%20new%20FileReader();fr.onload%20=%20function%20()%20%7Bvar%20r%20=%20parseRouteGpx(String(fr.result),%20f.name);if%20(r)%20%7B%20routes%20=%20routes.filter(function%20(x)%20%7B%20return%20x.name%20!==%20r.name;%20%7D);%20routes.push(r);%20ok++;%20%7D%20else%20bad.push(f.name);if%20(++done%20===%20fs.length)%20%7BsaveRoutes();%20renderRoutes();%20mon.key%20=%20null;%20renderRainbow();msg(&#x27;%E5%B7%B2%E5%8C%AF%E5%85%A5%20&#x27;%20+%20ok%20+%20&#x27;%20%E6%A2%9D%E8%B7%AF%E7%B7%9A&#x27;%20+%20(bad.length%20?%20&#x27;%EF%BC%9B%E7%84%A1%E6%B3%95%E8%BE%A8%E8%AD%98%EF%BC%9A&#x27;%20+%20bad.join(&#x27;%E3%80%81&#x27;)%20:%20&#x27;&#x27;));inp.value%20=%20&#x27;&#x27;;%7D%7D;fr.readAsText(f);%7D);%7D;function%20copyText(text)%20%7Bfunction%20fb()%20%7Bvar%20ta%20=%20document.createElement(&#x27;textarea&#x27;);%20ta.value%20=%20text;%20ta.style.position%20=%20&#x27;fixed&#x27;;%20ta.style.opacity%20=%20&#x27;0&#x27;;document.body.appendChild(ta);%20ta.select();var%20ok%20=%20false;%20try%20%7B%20ok%20=%20document.execCommand(&#x27;copy&#x27;);%20%7D%20catch%20(e)%20%7B%7Dta.remove();%20return%20ok;%7Dif%20(navigator.clipboard%20&amp;&amp;%20navigator.clipboard.writeText)%20%7Breturn%20navigator.clipboard.writeText(text).then(function%20()%20%7B%20return%20true;%20%7D,%20function%20()%20%7B%20return%20fb();%20%7D);%7Dreturn%20Promise.resolve(fb());%7Dbox.querySelector(&#x27;.cp&#x27;).onclick%20=%20function%20()%20%7Bif%20(!list.length)%20%7B%20msg(&#x27;%E6%B8%85%E5%96%AE%E6%98%AF%E7%A9%BA%E7%9A%84&#x27;);%20return;%20%7Dvar%20text%20=%20list.map(function%20(p)%20%7B%20return%20p.lat%20+%20&#x27;,%20&#x27;%20+%20p.lng;%20%7D).join(&#x27;%5Cn&#x27;);copyText(text).then(function%20(ok)%20%7B%20msg(ok%20?%20&#x27;%E5%B7%B2%E8%A4%87%E8%A3%BD%20&#x27;%20+%20list.length%20+%20&#x27;%20%E5%80%8B%E5%BA%A7%E6%A8%99%EF%BC%8C%E5%88%B0%20GPX%20%E7%AB%99%E9%BB%9E%E6%8E%92%E5%BA%8F%E8%B2%BC%E4%B8%8A&#x27;%20:%20&#x27;%E8%A4%87%E8%A3%BD%E5%A4%B1%E6%95%97%EF%BC%8C%E8%AB%8B%E5%86%8D%E8%A9%A6%E4%B8%80%E6%AC%A1&#x27;);%20%7D);%7D;box.querySelector(&#x27;.clr&#x27;).onclick%20=%20function%20()%20%7Bif%20(!list.length)%20return;if%20(!confirm(&#x27;%E7%A2%BA%E5%AE%9A%E6%B8%85%E7%A9%BA%E5%85%A8%E9%83%A8%20&#x27;%20+%20list.length%20+%20&#x27;%20%E5%80%8B%E6%94%B6%E9%9B%86%E7%9A%84%E9%BB%9E%EF%BC%9F&#x27;))%20return;list%20=%20%5B%5D;%20save();%20render();%20syncButtons();%20msg(&#x27;%E5%B7%B2%E6%B8%85%E7%A9%BA&#x27;);%7D;box.querySelector(&#x27;.mi&#x27;).onclick%20=%20function%20()%20%7Bvar%20min%20=%20box.classList.toggle(&#x27;min&#x27;);try%20%7B%20var%20u%20=%20JSON.parse(localStorage.getItem(&#x27;mfCollector.ui&#x27;)%20%7C%7C%20&#x27;%7B%7D&#x27;)%20%7C%7C%20%7B%7D;%20u.min%20=%20min;%20localStorage.setItem(&#x27;mfCollector.ui&#x27;,%20JSON.stringify(u));%20%7D%20catch%20(e)%20%7B%7Dthis.textContent%20=%20min%20?%20&#x27;%EF%BC%8B&#x27;%20:%20&#x27;%EF%BC%8D&#x27;;this.setAttribute(&#x27;aria-expanded&#x27;,%20String(!min));%7D;box.querySelector(&#x27;.x&#x27;).onclick%20=%20function%20()%20%7B%20box.hidden%20=%20true;%20%7D;function%20popupInfo(root)%20%7Bvar%20btn%20=%20root.querySelector(&#x27;%5Bdata-copy-text%5D&#x27;);var%20p%20=%20btn%20&amp;&amp;%20norm(btn.getAttribute(&#x27;data-copy-text&#x27;));if%20(!p)%20return%20null;var%20h%20=%20root.querySelector(&#x27;.mf-popup-head%20h2,%20h2,%20h3&#x27;);p.name%20=%20h%20?%20h.textContent.trim()%20:%20&#x27;&#x27;;return%20p;%7Dfunction%20setBtn(b,%20p)%20%7Bvar%20inList%20=%20has(p);b.classList.toggle(&#x27;done&#x27;,%20inList);b.textContent%20=%20inList%20?%20&#x27;%E2%9C%93%20%E5%B7%B2%E5%9C%A8%E6%B8%85%E5%96%AE%EF%BC%88%E5%86%8D%E6%8C%89%E7%A7%BB%E9%99%A4%EF%BC%89&#x27;%20:%20&#x27;%EF%BC%8B%E5%8A%A0%E5%85%A5%20GPX&#x27;;%7Dfunction%20syncButtons()%20%7Bdocument.querySelectorAll(&#x27;.mfc-add&#x27;).forEach(function%20(b)%20%7Bvar%20p%20=%20popupInfo(b.parentNode);%20if%20(p)%20setBtn(b,%20p);%7D);%7Dfunction%20inject()%20%7Bdocument.querySelectorAll(&#x27;.leaflet-popup-content&#x27;).forEach(function%20(c)%20%7Bif%20(c.querySelector(&#x27;.mfc-add&#x27;))%20return;var%20p%20=%20popupInfo(c);%20if%20(!p)%20return;var%20b%20=%20document.createElement(&#x27;button&#x27;);b.type%20=%20&#x27;button&#x27;;%20b.className%20=%20&#x27;mfc-add&#x27;;setBtn(b,%20p);b.onclick%20=%20function%20(e)%20%7Be.stopPropagation();var%20q%20=%20popupInfo(c);%20if%20(!q)%20return;if%20(has(q))%20%7Blist%20=%20list.filter(function%20(x)%20%7B%20return%20!(x.lat%20===%20q.lat%20&amp;&amp;%20x.lng%20===%20q.lng);%20%7D);msg(&#x27;%E5%B7%B2%E7%A7%BB%E9%99%A4%EF%BC%9A&#x27;%20+%20(q.name%20%7C%7C%20q.lat%20+%20&#x27;,%20&#x27;%20+%20q.lng));%7D%20else%20%7Blist.push(q);msg(&#x27;%E5%B7%B2%E5%8A%A0%E5%85%A5%E7%AC%AC%20&#x27;%20+%20list.length%20+%20&#x27;%20%E5%80%8B%EF%BC%9A&#x27;%20+%20(q.name%20%7C%7C%20q.lat%20+%20&#x27;,%20&#x27;%20+%20q.lng));%7Dsave();%20render();%20setBtn(b,%20q);%7D;c.appendChild(b);%7D);%7Dvar%20mo%20=%20new%20MutationObserver(function%20()%20%7B%20inject();%20%7D);mo.observe(document.body,%20%7B%20childList:%20true,%20subtree:%20true%20%7D);window.__mfCollector%20=%20%7B%20ver:%209,%20dbg:%20function%20()%20%7B%20var%20c%20=%20%7B%7D;%20Object.keys(store).forEach(function%20(k)%20%7B%20var%20a%20=%20store%5Bk%5D.__area%20%7C%7C%20&#x27;-&#x27;;%20c%5Ba%5D%20=%20(c%5Ba%5D%20%7C%7C%200)%20+%201;%20%7D);%20return%20%7B%20byArea:%20c,%20map:%20!!theMap,%20sweeping:%20!!mon.sweeping%20%7D;%20%7D,%20show:%20function%20()%20%7B%20box.hidden%20=%20false;%20box.classList.remove(&#x27;min&#x27;);%20%7D,%20view:%20currentView,%20tick:%20function%20()%20%7B%20renderRainbow();%20%7D%20%7D;var%20UKEY%20=%20&#x27;mfCollector.ui&#x27;,%20ui%20=%20%7B%7D;try%20%7B%20ui%20=%20JSON.parse(localStorage.getItem(UKEY)%20%7C%7C%20&#x27;%7B%7D&#x27;)%20%7C%7C%20%7B%7D;%20%7D%20catch%20(e)%20%7B%20ui%20=%20%7B%7D;%20%7Dbox.querySelectorAll(&#x27;details.sec&#x27;).forEach(function%20(d)%20%7Bvar%20k%20=%20d.getAttribute(&#x27;data-k&#x27;);if%20(ui%5Bk%5D%20===%20true)%20d.open%20=%20true;%20else%20if%20(ui%5Bk%5D%20===%20false)%20d.open%20=%20false;d.addEventListener(&#x27;toggle&#x27;,%20function%20()%20%7B%20ui%5Bk%5D%20=%20d.open;%20try%20%7B%20localStorage.setItem(UKEY,%20JSON.stringify(ui));%20%7D%20catch%20(e)%20%7B%7D%20%7D);%7D);if%20(ui.min)%20%7B%20box.classList.add(&#x27;min&#x27;);%20box.querySelector(&#x27;.mi&#x27;).textContent%20=%20&#x27;%EF%BC%8B&#x27;;%20box.querySelector(&#x27;.mi&#x27;).setAttribute(&#x27;aria-expanded&#x27;,%20&#x27;false&#x27;);%20%7Drender();%20renderAreas();%20renderRoutes();%20renderRainbow();%20inject();if%20(canSync())%20%7B%20sstat(&#x27;%E5%90%8C%E6%AD%A5%E4%B8%AD%E2%80%A6&#x27;);%20pullSettings(false);%20%7D%20else%20sstat(&#x27;%E5%A1%AB%E5%85%A5%20GAS%20%E7%B6%B2%E5%9D%80%E8%88%87%E9%80%9A%E9%97%9C%E5%AF%86%E7%A2%BC%E5%BE%8C%EF%BC%8C%E5%8F%AF%E5%9C%A8%E5%A4%9A%E5%8F%B0%E9%9B%BB%E8%85%A6%E5%90%8C%E6%AD%A5%E8%A8%AD%E5%AE%9A&#x27;);msg(&#x27;%E6%94%B6%E9%9B%86%E5%99%A8%E5%B7%B2%E5%95%9F%E5%8B%95&#x27;);%7D)();">果實摘採器 v9</a>
+        <button class="btn" id="btnCopyBm" type="button">複製書籤網址</button>
+      </div>
+      <p class="note" id="bmTip" role="status">拖曳不成功：按「複製書籤網址」，在書籤列按右鍵 →「新增網頁」，名稱填「果實摘採器」，網址貼上後儲存。</p>
+      <details>
+        <summary>使用說明</summary>
+        <div class="dbody">
+          <p><strong>收集座標</strong>：點開蘑菇或花，資訊框下方按「＋加入 GPX」，收完按「複製全部座標」，貼到本頁上方輸入框。</p>
+          <p><strong>常用區域</strong>：地圖移到要的位置（放大到 15 級以上），按「＋存目前畫面」。</p>
+          <p><strong>彩虹花監看</strong>：按「開始監看」，每隔幾分鐘自動更新；勾「輪流監看所有常用區域」可一次看多區。</p>
+          <p><strong>我的路線</strong>：匯入本頁下載的路線 GPX，發現彩虹花時會顯示「路線名 第 N 站」，並可直接下載該路線。</p>
+          <p>面板各區可以收合，按右上角「－」可縮成一行。</p>
+        </div>
+      </details>
+      <details>
+        <summary>進階：Telegram 通知與多台電腦同步（需自建 Google Apps Script）</summary>
+        <div class="dbody">
+          <ol class="steps">
+            <li>到 script.google.com 建立新專案，把下方程式碼整份貼上，修改最上面的 <code>TOKEN</code>（自訂密碼）、<code>TG_TOKEN</code>、<code>TG_CHAT_ID</code>。</li>
+            <li>Telegram 找 <strong>@BotFather</strong>（名字旁有藍勾勾）傳 <code>/newbot</code> 建立機器人，取得 Token；對機器人傳一句話後，在 GAS 執行 <code>getChatId</code> 取得聊天室 ID。</li>
+            <li>執行 <code>testMail</code> 完成授權，再「部署 → 新增部署作業 → 網頁應用程式」，執行身分「我」、存取權「任何人」，複製 <code>/exec</code> 網址。</li>
+            <li>在摘採器「雲端同步與通知設定」填入網址、密碼、電腦名稱，按「儲存」→「設為通知電腦」→「發送測試通知」。</li>
+          </ol>
+          <p class="note">Token 與密碼只填在你自己的 GAS 和摘採器裡，請勿外流。Email 預設關閉。</p>
+          <div class="row"><button class="btn" id="btnCopyGas" type="button">複製 GAS 程式碼</button></div>
+          <label for="gasCode" class="sr-only">GAS 程式碼</label>
+          <textarea id="gasCode" readonly spellcheck="false">/**
+ * 果實摘採器通知中繼站 v1.5（Telegram＋設定同步，Email 預設關閉）
+ * 版本紀錄：v1.0 Email 通知初版｜v1.1 程式加入 Telegram｜v1.2 新增 Telegram 推播（正式啟用）｜v1.3 新增設定同步與寄信電腦｜v1.4 收件人改用指令碼屬性 MAIL_TO（免重新部署）｜v1.5 Email 預設關閉、Telegram 附路線站號與 GPX 檔
+ * 蘑菇收集器發現新彩虹花時，會把資料送到這裡，由這個程式寄 Email 並推播 Telegram。
+ *
+ * 使用前改下面的設定。Telegram 兩項沒填時，只寄 Email。
+ */
+const TOKEN = &#x27;請改成你自己的密碼&#x27;;                 // 通關密碼，要和收集器裡填的一樣
+const TO = &#x27;你的信箱@example.com&#x27;;   // 預設收件人；若在「專案設定 → 指令碼屬性」設定 MAIL_TO，會以 MAIL_TO 為準（改了不用重新部署）
+const SEND_MAIL = false;                           // 是否寄 Email；也可在指令碼屬性設 MAIL_ENABLED=true 開啟（免重新部署）
+const MIN_GAP_SECONDS = 60;                        // 兩次通知最少間隔幾秒（防止短時間大量寄信）
+const TG_TOKEN = &#x27;&#x27;;                               // Telegram 機器人 Token（@BotFather 給的）
+const TG_CHAT_ID = &#x27;&#x27;;                             // 你的聊天室 ID（執行 getChatId 取得）
+
+/** 收集器送資料進來 */
+function doPost(e) {
+  try {
+    const data = JSON.parse((e &amp;&amp; e.postData &amp;&amp; e.postData.contents) || &#x27;{}&#x27;);
+    if (data.token !== TOKEN) return reply_({ ok: false, error: &#x27;密碼不對&#x27; });
+
+    // 設定同步與寄信電腦
+    if (data.action === &#x27;getSettings&#x27;) return reply_(getSettings_());
+    if (data.action === &#x27;saveSettings&#x27;) return reply_(saveSettings_(data.settings, data.updatedAt));
+    if (data.action === &#x27;setNotifier&#x27;) {
+      if (!data.device) return reply_({ ok: false, error: &#x27;缺少電腦代號&#x27; });
+      PropertiesService.getScriptProperties().setProperty(&#x27;notifier&#x27;, JSON.stringify({ id: data.device, name: data.deviceName || &#x27;&#x27; }));
+      return reply_({ ok: true });
+    }
+
+    const items = Array.isArray(data.items) ? data.items.slice(0, 30) : [];
+    if (data.test) {
+      const r = notifyAll_([{ area: &#x27;測試&#x27;, title: &#x27;這是一則測試通知&#x27;, displayName: &#x27;&#x27;, remain: &#x27;22:30:00&#x27;, lat: 23.949163, lng: 120.576512, routes: [{ name: &#x27;測試路線&#x27;, station: 1 }] }], true, [{ name: &#x27;測試路線&#x27;, gpx: &#x27;&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;\n&lt;gpx version=&quot;1.1&quot; creator=&quot;Suderpanda&quot;&gt;\n  &lt;trk&gt;&lt;name&gt;測試路線&lt;/name&gt;&lt;trkseg&gt;\n    &lt;trkpt lat=&quot;23.9491630&quot; lon=&quot;120.5765120&quot;&gt;&lt;/trkpt&gt;\n  &lt;/trkseg&gt;&lt;/trk&gt;\n&lt;/gpx&gt;&#x27; }]);
+      return reply_(Object.assign({ ok: r.mail || r.tg, sent: r.mail || r.tg, test: true }, r.error ? { error: r.error } : {}));
+    }
+    if (!items.length) return reply_({ ok: true, sent: false, reason: &#x27;沒有資料&#x27; });
+
+    // 只接受寄信電腦送來的通知（尚未指定時，每台都可寄）
+    const nt = getNotifier_();
+    if (nt &amp;&amp; nt.id &amp;&amp; data.device !== nt.id) return reply_({ ok: true, sent: false, notNotifier: true, reason: &#x27;不是寄信電腦&#x27; });
+
+    // 限制寄信頻率
+    const cache = CacheService.getScriptCache();
+    if (cache.get(&#x27;lastSent&#x27;)) return reply_({ ok: true, sent: false, reason: &#x27;寄信太頻繁，這次略過&#x27; });
+    cache.put(&#x27;lastSent&#x27;, &#x27;1&#x27;, Math.max(1, MIN_GAP_SECONDS));
+
+    const files = Array.isArray(data.files) ? data.files.slice(0, 5) : [];
+    const r = notifyAll_(items, false, files);
+    return reply_(Object.assign({ ok: r.mail || r.tg, sent: r.mail || r.tg, count: items.length }, r.error ? { error: r.error } : {}));
+  } catch (err) {
+    return reply_({ ok: false, error: String(err) });
+  }
+}
+
+/** ===== 設定同步（分段存放，每段 8000 字） ===== */
+function getNotifier_() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(&#x27;notifier&#x27;) || &#x27;null&#x27;); } catch (e) { return null; }
+}
+function getSettings_() {
+  const props = PropertiesService.getScriptProperties();
+  const n = Number(props.getProperty(&#x27;set_n&#x27;) || 0);
+  let raw = &#x27;&#x27;;
+  for (let i = 0; i &lt; n; i++) raw += props.getProperty(&#x27;set_&#x27; + i) || &#x27;&#x27;;
+  let settings = null;
+  try { settings = raw ? JSON.parse(raw) : null; } catch (e) { settings = null; }
+  return { ok: true, settings: settings, updatedAt: Number(props.getProperty(&#x27;set_at&#x27;) || 0), notifier: getNotifier_() };
+}
+function saveSettings_(settings, updatedAt) {
+  if (!settings || typeof settings !== &#x27;object&#x27;) return { ok: false, error: &#x27;沒有設定資料&#x27; };
+  const raw = JSON.stringify(settings);
+  if (raw.length &gt; 400000) return { ok: false, error: &#x27;設定資料太大&#x27; };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const oldN = Number(props.getProperty(&#x27;set_n&#x27;) || 0);
+    const obj = {}, size = 8000;
+    let n = 0;
+    for (let i = 0; i &lt; raw.length; i += size) obj[&#x27;set_&#x27; + (n++)] = raw.slice(i, i + size);
+    obj.set_n = String(n);
+    obj.set_at = String(Number(updatedAt) || Date.now());
+    props.setProperties(obj);
+    for (let i = n; i &lt; oldN; i++) props.deleteProperty(&#x27;set_&#x27; + i);
+    return { ok: true, updatedAt: Number(obj.set_at) };
+  } finally { lock.releaseLock(); }
+}
+
+/** 用瀏覽器打開網址時顯示，確認部署成功 */
+function doGet() {
+  return ContentService.createTextOutput(&#x27;蘑菇彩虹花寄信中繼站運作中&#x27;);
+}
+
+/** 第一次請在編輯器選這個函式按「執行」，完成授權並寄一封測試信（有設定 Telegram 也會一起推播） */
+function testMail() {
+  const r = notifyAll_([{ area: &#x27;測試&#x27;, title: &#x27;編輯器測試通知&#x27;, displayName: &#x27;&#x27;, remain: &#x27;22:30:00&#x27;, lat: 23.949163, lng: 120.576512 }], true);
+  Logger.log(JSON.stringify(r));
+}
+
+/** 取得 Telegram 聊天室 ID：先在 Telegram 傳一句話給你的機器人，再選這個函式按「執行」，看下方「執行記錄」 */
+function getChatId() {
+  if (!TG_TOKEN) { Logger.log(&#x27;請先在最上面填入 TG_TOKEN&#x27;); return; }
+  const res = UrlFetchApp.fetch(&#x27;https://api.telegram.org/bot&#x27; + TG_TOKEN + &#x27;/getUpdates&#x27;, { muteHttpExceptions: true });
+  const data = JSON.parse(res.getContentText());
+  if (!data.ok) { Logger.log(&#x27;Token 可能不對：&#x27; + res.getContentText()); return; }
+  const seen = {};
+  (data.result || []).forEach(u =&gt; {
+    const m = u.message || u.edited_message; if (!m || !m.chat) return;
+    seen[m.chat.id] = (m.chat.first_name || &#x27;&#x27;) + &#x27; &#x27; + (m.chat.last_name || &#x27;&#x27;) + (m.chat.username ? &#x27; @&#x27; + m.chat.username : &#x27;&#x27;);
+  });
+  const ids = Object.keys(seen);
+  if (!ids.length) { Logger.log(&#x27;沒有找到訊息。請先在 Telegram 對機器人傳一句話（例如 hi），再執行一次。&#x27;); return; }
+  ids.forEach(id =&gt; Logger.log(&#x27;聊天室 ID：&#x27; + id + &#x27;（&#x27; + seen[id].trim() + &#x27;）&#x27;));
+  Logger.log(&#x27;把上面的數字填到 TG_CHAT_ID，儲存後再執行 testMail 測試。&#x27;);
+}
+
+/** 同時寄 Email 與推播 Telegram，其中一個失敗不影響另一個 */
+function mailEnabled_() {
+  const v = (PropertiesService.getScriptProperties().getProperty(&#x27;MAIL_ENABLED&#x27;) || &#x27;&#x27;).trim().toLowerCase();
+  if (v === &#x27;true&#x27;) return true;
+  if (v === &#x27;false&#x27;) return false;
+  return SEND_MAIL;
+}
+function notifyAll_(items, isTest, files) {
+  const r = { mail: false, tg: false, error: &#x27;&#x27; };
+  if (mailEnabled_()) {
+    try { sendMail_(items, isTest); r.mail = true; } catch (e) { r.error += &#x27;Email：&#x27; + e + &#x27;；&#x27;; }
+  }
+  if (TG_TOKEN &amp;&amp; TG_CHAT_ID) {
+    try { sendTelegram_(items, isTest); r.tg = true; } catch (e) { r.error += &#x27;Telegram：&#x27; + e + &#x27;；&#x27;; }
+    (files || []).forEach(f =&gt; {
+      try { sendTelegramFile_(f); } catch (e) { r.error += &#x27;GPX 檔：&#x27; + e + &#x27;；&#x27;; }
+    });
+  }
+  if (!r.mail &amp;&amp; !r.tg &amp;&amp; !r.error) r.error = &#x27;沒有可用的通知方式（Telegram 未設定，Email 已關閉）&#x27;;
+  return r;
+}
+
+function sendTelegramFile_(f) {
+  if (!f || !f.gpx) return;
+  const fname = String(f.name || &#x27;路線&#x27;).replace(/[\\/:*?&quot;&lt;&gt;|]/g, &#x27;_&#x27;) + &#x27;.gpx&#x27;;
+  const blob = Utilities.newBlob(String(f.gpx), &#x27;application/gpx+xml&#x27;, fname);
+  const res = UrlFetchApp.fetch(&#x27;https://api.telegram.org/bot&#x27; + TG_TOKEN + &#x27;/sendDocument&#x27;, {
+    method: &#x27;post&#x27;, muteHttpExceptions: true,
+    payload: { chat_id: String(TG_CHAT_ID), document: blob, caption: &#x27;路線檔：&#x27; + String(f.name || &#x27;&#x27;) }
+  });
+  const data = JSON.parse(res.getContentText());
+  if (!data.ok) throw new Error(data.description || res.getContentText());
+}
+
+function sendTelegram_(items, isTest) {
+  const esc = s =&gt; String(s == null ? &#x27;&#x27; : s).replace(/[&amp;&lt;&gt;]/g, c =&gt; ({ &#x27;&amp;&#x27;: &#x27;&amp;amp;&#x27;, &#x27;&lt;&#x27;: &#x27;&amp;lt;&#x27;, &#x27;&gt;&#x27;: &#x27;&amp;gt;&#x27; }[c]));
+  const lines = items.map(it =&gt; {
+    const url = &#x27;https://pipimushroom.com/mfmap.aspx?lat=&#x27; + Number(it.lat).toFixed(6) + &#x27;&amp;lng=&#x27; + Number(it.lng).toFixed(6) + &#x27;&amp;zoom=17&#x27;;
+    return (it.area ? &#x27;〔&#x27; + esc(it.area) + &#x27;〕&#x27; : &#x27;&#x27;) + &#x27;&lt;a href=&quot;&#x27; + url + &#x27;&quot;&gt;&#x27; + esc(it.title || &#x27;未命名&#x27;) + &#x27;&lt;/a&gt;&#x27; +
+      (it.displayName ? &#x27;｜&#x27; + esc(it.displayName) : &#x27;&#x27;) + &#x27;｜&lt;b&gt;&#x27; + esc(it.remain || &#x27;&#x27;) + &#x27;&lt;/b&gt;&#x27; +
+      (Array.isArray(it.routes) &amp;&amp; it.routes.length ? &#x27;\n   ➜ &#x27; + it.routes.map(rt =&gt; &#x27;&lt;b&gt;&#x27; + esc(rt.name) + &#x27;&lt;/b&gt; 第 &#x27; + esc(rt.station) + &#x27; 站&#x27;).join(&#x27;、&#x27;) : &#x27;&#x27;);
+  });
+  const text = (isTest ? &#x27;【測試】&#x27; : &#x27;&#x27;) + &#x27;🌈 發現 &#x27; + items.length + &#x27; 朵新彩虹花\n&#x27; + lines.join(&#x27;\n&#x27;);
+  const res = UrlFetchApp.fetch(&#x27;https://api.telegram.org/bot&#x27; + TG_TOKEN + &#x27;/sendMessage&#x27;, {
+    method: &#x27;post&#x27;, contentType: &#x27;application/json&#x27;, muteHttpExceptions: true,
+    payload: JSON.stringify({ chat_id: TG_CHAT_ID, text: text, parse_mode: &#x27;HTML&#x27;, disable_web_page_preview: true })
+  });
+  const data = JSON.parse(res.getContentText());
+  if (!data.ok) throw new Error(data.description || res.getContentText());
+}
+
+function sendMail_(items, isTest) {
+  const esc = s =&gt; String(s == null ? &#x27;&#x27; : s).replace(/[&amp;&lt;&gt;&quot;]/g, c =&gt; ({ &#x27;&amp;&#x27;: &#x27;&amp;amp;&#x27;, &#x27;&lt;&#x27;: &#x27;&amp;lt;&#x27;, &#x27;&gt;&#x27;: &#x27;&amp;gt;&#x27;, &#x27;&quot;&#x27;: &#x27;&amp;quot;&#x27; }[c]));
+  const areas = [...new Set(items.map(it =&gt; it.area).filter(Boolean))];
+  const subject = (isTest ? &#x27;【測試】&#x27; : &#x27;&#x27;) + &#x27;🌈 發現 &#x27; + items.length + &#x27; 朵新彩虹花&#x27; + (areas.length ? &#x27;（&#x27; + areas.join(&#x27;、&#x27;) + &#x27;）&#x27; : &#x27;&#x27;);
+  const rows = items.map(it =&gt; {
+    const url = &#x27;https://pipimushroom.com/mfmap.aspx?lat=&#x27; + Number(it.lat).toFixed(6) + &#x27;&amp;lng=&#x27; + Number(it.lng).toFixed(6) + &#x27;&amp;zoom=17&#x27;;
+    return &#x27;&lt;tr&gt;&#x27; +
+      &#x27;&lt;td style=&quot;padding:8px;border-bottom:1px solid #ddd&quot;&gt;&#x27; + esc(it.area || &#x27;&#x27;) + &#x27;&lt;/td&gt;&#x27; +
+      &#x27;&lt;td style=&quot;padding:8px;border-bottom:1px solid #ddd&quot;&gt;&lt;a href=&quot;&#x27; + url + &#x27;&quot; style=&quot;color:#14539A;font-weight:bold&quot;&gt;&#x27; + esc(it.title || &#x27;未命名&#x27;) + &#x27;&lt;/a&gt;&lt;br&gt;&lt;span style=&quot;color:#555;font-size:13px&quot;&gt;&#x27; + esc(it.displayName || &#x27;&#x27;) + &#x27;&lt;/span&gt;&lt;/td&gt;&#x27; +
+      &#x27;&lt;td style=&quot;padding:8px;border-bottom:1px solid #ddd;font-family:monospace;color:#6929C4;font-weight:bold&quot;&gt;&#x27; + esc(it.remain || &#x27;&#x27;) + &#x27;&lt;/td&gt;&#x27; +
+      &#x27;&lt;/tr&gt;&#x27;;
+  }).join(&#x27;&#x27;);
+  const now = Utilities.formatDate(new Date(), &#x27;Asia/Taipei&#x27;, &#x27;yyyy/MM/dd HH:mm&#x27;);
+  const html =
+    &#x27;&lt;div style=&quot;font-family:sans-serif;font-size:16px;line-height:1.6&quot;&gt;&#x27; +
+    &#x27;&lt;p&gt;&#x27; + now + &#x27; 發現新的彩虹花（倒數 22:00～22:59）。點地名會開啟蘑菇地圖。&lt;/p&gt;&#x27; +
+    &#x27;&lt;table style=&quot;border-collapse:collapse;width:100%;max-width:640px&quot;&gt;&#x27; +
+    &#x27;&lt;tr style=&quot;background:#F5F0FF&quot;&gt;&lt;th style=&quot;padding:8px;text-align:left&quot;&gt;區域&lt;/th&gt;&lt;th style=&quot;padding:8px;text-align:left&quot;&gt;地名／花種&lt;/th&gt;&lt;th style=&quot;padding:8px;text-align:left&quot;&gt;通知時倒數&lt;/th&gt;&lt;/tr&gt;&#x27; +
+    rows + &#x27;&lt;/table&gt;&#x27; +
+    &#x27;&lt;p style=&quot;color:#777;font-size:13px&quot;&gt;由蘑菇收集器自動寄出。倒數是通知當下的時間，實際請以地圖為準。&lt;/p&gt;&lt;/div&gt;&#x27;;
+  const text = items.map(it =&gt; (it.area ? &#x27;〔&#x27; + it.area + &#x27;〕&#x27; : &#x27;&#x27;) + (it.title || &#x27;未命名&#x27;) + &#x27; &#x27; + (it.remain || &#x27;&#x27;)).join(&#x27;\n&#x27;);
+  MailApp.sendEmail({ to: getTo_(), subject: subject, htmlBody: html, body: text, name: &#x27;蘑菇收集器&#x27; });
+}
+
+/** 收件人：優先讀指令碼屬性 MAIL_TO（多人用半形逗號隔開），沒有才用程式裡的 TO */
+function getTo_() {
+  const v = (PropertiesService.getScriptProperties().getProperty(&#x27;MAIL_TO&#x27;) || &#x27;&#x27;).trim();
+  return v || TO;
+}
+
+function reply_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+</textarea>
+        </div>
+      </details>
+    </section>
+  </main>
+  <div class="to-top-wrap">
+    <button class="btn" id="btnTop" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 20V5M6 11l6-6 6 6M5 3h14"/></svg>回到頁首</button>
+  </div>
+</div>
+
+<p id="live" class="sr-only" aria-live="polite"></p>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+document.documentElement.lang = 'zh-Hant-TW';
+
+/* ===== 路徑點計算（與原工具 doubleLoop 相同算法） ===== */
+const LAT_M_PER_DEG = 111132;
+const LAT_M = 0.000009;
+
+function buildStationSteps(c, i) {
+  const out = [];
+  const oM = LAT_M / Math.cos(c.lat * Math.PI / 180);
+  const z = 'Z' + String(i + 1).padStart(2, '0');
+  // R1：半徑 30m 六角形，正北起順時針，角點＋邊中點；再北 15m → 中心 → 南 15m
+  const R = 30;
+  for (let j = 0; j < 6; j++) {
+    const a = (j * 60) * Math.PI / 180, na = ((j + 1) * 60) * Math.PI / 180;
+    out.push({ lat: c.lat + R * Math.cos(a) * LAT_M, lon: c.lon + R * Math.sin(a) * oM, ring: 1, name: `${z}-R1-${j*2+1}` });
+    out.push({ lat: c.lat + (R*Math.cos(a) + R*Math.cos(na)) / 2 * LAT_M, lon: c.lon + (R*Math.sin(a) + R*Math.sin(na)) / 2 * oM, ring: 1, name: `${z}-R1-${j*2+2}` });
+  }
+  out.push({ lat: c.lat + 15 * LAT_M, lon: c.lon, ring: 1, name: `${z}-R1-13` });
+  out.push({ lat: c.lat, lon: c.lon, ring: 1, name: `${z}-R1-14` });
+  out.push({ lat: c.lat - 15 * LAT_M, lon: c.lon, ring: 1, name: `${z}-R1-15` });
+  // R2：離中心 15m 的正方形，正北起順時針回到北
+  const d = 15;
+  [[d,0],[d,d],[0,d],[-d,d],[-d,0],[-d,-d],[0,-d],[d,-d],[d,0]].forEach((p, k) => {
+    out.push({ lat: c.lat + p[0] * LAT_M, lon: c.lon + p[1] * oM, ring: 2, name: `${z}-R2-${k+1}` });
+  });
+  return out;
+}
+function buildAllSteps(list) {
+  const all = [];
+  list.forEach((c, i) => all.push(...buildStationSteps(c, i)));
+  return all;
+}
+function xmlEsc(s) { return String(s).replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[ch])); }
+function buildGPX(points, routeName) {
+  let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Suderpanda">\n`;
+  gpx += `  <trk><name>${xmlEsc(routeName)}</name><trkseg>\n`;
+  points.forEach(p => { gpx += `    <trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}"></trkpt>\n`; });
+  gpx += `  </trkseg></trk>\n</gpx>`;
+  return gpx;
+}
+
+/* ===== GPX 匯入：找出每站中心點 ===== */
+function parseGPXPoints(text) {
+  const pts = [], re = /<(?:trkpt|wpt|rtept)\b([^>]*)>/gi; let m;
+  while ((m = re.exec(text))) {
+    const la = m[1].match(/\blat\s*=\s*["']([^"']+)["']/i), lo = m[1].match(/\blon\s*=\s*["']([^"']+)["']/i);
+    if (!la || !lo) continue;
+    const lat = parseFloat(la[1]), lon = parseFloat(lo[1]);
+    if (isFinite(lat) && isFinite(lon)) pts.push({ lat, lon });
+  }
+  return pts;
+}
+function makeIndex(pts) {
+  const CELL = 1e-4, grid = new Map(), uniq = [], ptU = [];
+  const key = (a, b) => a + ',' + b;
+  const cellOf = (lat, lon) => [Math.floor(lat / CELL), Math.floor(lon / CELL)];
+  function near(lat, lon, tolM) {
+    const [a, b] = cellOf(lat, lon), cosL = Math.cos(lat * Math.PI / 180);
+    let best = null, bd = tolM;
+    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+      const arr = grid.get(key(a + i, b + j)); if (!arr) continue;
+      arr.forEach(u => {
+        const d = Math.hypot((u.lat - lat) * LAT_M_PER_DEG, (u.lon - lon) * LAT_M_PER_DEG * cosL);
+        if (d <= bd) { bd = d; best = u; }
+      });
+    }
+    return best;
+  }
+  pts.forEach((p, i) => {
+    let u = near(p.lat, p.lon, 0.02);
+    if (!u) {
+      u = { lat: p.lat, lon: p.lon, id: uniq.length, first: i };
+      uniq.push(u);
+      const k = key(...cellOf(p.lat, p.lon));
+      if (!grid.has(k)) grid.set(k, []);
+      grid.get(k).push(u);
+    }
+    ptU[i] = u.id;
+  });
+  return { uniq, ptU, near };
+}
+function detectCenters(pts) {
+  const idx = makeIndex(pts), U = idx.uniq, TOL = 0.6;
+  const match = list => { const ids = []; for (const s of list) { const u = idx.near(s.lat, s.lon, TOL); if (!u) return null; ids.push(u.id); } return ids; };
+  const polar = (c, dist, deg) => ({
+    lat: c.lat + dist * Math.cos(deg * Math.PI / 180) / LAT_M_PER_DEG,
+    lon: c.lon + dist * Math.sin(deg * Math.PI / 180) / (LAT_M_PER_DEG * Math.cos(c.lat * Math.PI / 180))
+  });
+  const loops = [], inter = [], jumps = [];
+  U.forEach(c => {
+    // 雙圈／單圈：R1 六角形 12 點＋北南 15m
+    const st = buildStationSteps(c, 0);
+    const r1 = match(st.slice(0, 15).filter((_, k) => k !== 13));
+    if (r1) {
+      const r2 = match(st.slice(15));
+      loops.push({ c, ids: [c.id, ...r1, ...(r2 || [])], r2: !!r2 });
+    }
+    // 互動 20：周圍 36m 有 4 點，彼此相隔 90°
+    for (const base of [45, 0]) {
+      const m4 = match([0, 90, 180, 270].map(a => polar(c, 36, base + a)));
+      if (m4) { inter.push({ c, ids: [c.id, ...m4] }); break; }
+    }
+    // 跳躍：東西各 10m
+    const j = match([polar(c, 10, 270), polar(c, 10, 90)]);
+    if (j) jumps.push({ c, ids: [c.id, ...j] });
+  });
+  const dbl = loops.filter(s => s.r2).length >= loops.length / 2;
+  const cands = [
+    { key: dbl ? 'double' : 'single', label: dbl ? '雙圈（R1＋R2）' : '單圈', per: dbl ? 24 : 15, st: loops },
+    { key: 'interact', label: '互動 20', per: 5, st: inter },
+    { key: 'jump', label: '跳躍', per: 3, st: jumps }
+  ];
+  cands.forEach(m => {
+    const cov = new Set(); m.st.forEach(s => s.ids.forEach(id => cov.add(id)));
+    m.covered = pts.reduce((n, _, i) => n + (cov.has(idx.ptU[i]) ? 1 : 0), 0);
+  });
+  cands.sort((a, b) => b.covered - a.covered);
+  const best = cands[0];
+  const stations = best.st
+    .map(s => ({ lat: s.c.lat, lon: s.c.lon, first: Math.min(...s.ids.map(id => U[id].first)) }))
+    .sort((a, b) => a.first - b.first);
+  return { mode: best.key, label: best.label, per: best.per, centers: stations, total: pts.length, covered: best.covered };
+}
+
+/* ===== 狀態 ===== */
+// points：所有點（固定代號 P1、P2…）；route：路線中點的代號順序
+const STORE_KEY = 'gpxStopOrder.v2';
+let points = [];     // [{code:'P1', lat, lon}]
+let route = [];      // ['P3','P1',...]
+let pNext = 1;
+let history = [];
+let hoverCode = null;
+const SAMPLE = '23.949163, 120.576512\n23.950250, 120.577300\n23.948100, 120.577900';
+
+const $ = id => document.getElementById(id);
+const els = {
+  input: $('coordsInput'), routeList: $('routeList'), poolList: $('poolList'),
+  canvas: $('map'), detail: $('showDetail'),
+  speed: $('speed'), gpxOut: $('gpxOut'), undo: $('btnUndo')
+};
+const byCode = code => points.find(p => p.code === code);
+const codeNum = code => parseInt(code.slice(1), 10);
+const routePts = () => route.map(byCode).filter(Boolean);
+const poolPts = () => points.filter(p => !route.includes(p.code)).sort((a, b) => codeNum(a.code) - codeNum(b.code));
+
+function todayName() {
+  const n = new Date();
+  return 'Suderpanda_' + String(n.getMonth() + 1).padStart(2, '0') + String(n.getDate()).padStart(2, '0');
+}
+function save() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify({ points, route, pNext, speed: els.speed.value, detail: els.detail.checked })); } catch (e) {}
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    points = d.points || []; route = (d.route || []).filter(c => points.some(p => p.code === c));
+    pNext = d.pNext || (points.length ? Math.max(...points.map(p => codeNum(p.code))) + 1 : 1);
+    if (d.speed) els.speed.value = d.speed;
+    if (typeof d.detail === 'boolean') els.detail.checked = d.detail;
+    return true;
+  } catch (e) { return false; }
+}
+const snap = () => JSON.stringify({ points, route, pNext });
+function pushHistory(s) {
+  history.push(s || snap());
+  if (history.length > 60) history.shift();
+  els.undo.disabled = false;
+}
+function undo() {
+  if (!history.length) return;
+  const d = JSON.parse(history.pop());
+  points = d.points; route = d.route; pNext = d.pNext;
+  refresh(); announce('已復原上一步'); toast('已復原');
+}
+
+/* ===== 座標解析 ===== */
+function parseCoords(text) {
+  const out = []; let bad = 0;
+  text.split(/\r?\n/).forEach(line => {
+    const t = line.trim(); if (!t) return;
+    const m = t.match(/(-?\d+(?:\.\d+)?)\s*[,，|\t\s]\s*(-?\d+(?:\.\d+)?)/);
+    if (!m) { bad++; return; }
+    const lat = parseFloat(m[1]), lon = parseFloat(m[2]);
+    if (Math.abs(lat) > 90 || Math.abs(lon) > 180) { bad++; return; }
+    out.push({ lat, lon });
+  });
+  return { pts: out, bad };
+}
+const same = (a, b) => Math.abs(a.lat - b.lat) < 1e-7 && Math.abs(a.lon - b.lon) < 1e-7;
+
+function addCoords(replace) {
+  const { pts, bad } = parseCoords(els.input.value);
+  if (!pts.length) { toast(bad ? '看不懂這些座標，請用「緯度, 經度」一行一個' : '請先輸入座標'); return; }
+  pushHistory();
+  if (replace) { points = []; route = []; pNext = 1; }
+  const firstCode = 'P' + pNext;
+  let dup = 0, added = 0;
+  pts.forEach(p => {
+    if (points.some(s => same(s, p))) { dup++; return; }
+    points.push({ code: 'P' + pNext++, lat: p.lat, lon: p.lon });
+    added++;
+  });
+  resetView(); refresh();
+  let msg = added ? `已加入 ${added} 個待選點（${firstCode}${added > 1 ? '～P' + (pNext - 1) : ''}）` : '沒有新增任何點';
+  if (dup) msg += `，略過重複 ${dup} 個`;
+  if (bad) msg += `，無法辨識 ${bad} 行`;
+  toast(msg); announce(msg);
+}
+
+/* ===== 路線操作 ===== */
+function addToRoute(code) {
+  if (route.includes(code)) return;
+  pushHistory(); route.push(code); refresh();
+  announce(`${code} 加入路線，第 ${route.length} 站`);
+}
+function removeFromRoute(code) {
+  const i = route.indexOf(code); if (i < 0) return;
+  pushHistory(); route.splice(i, 1); refresh();
+  announce(`${code} 已移出路線，回到待選點`);
+}
+function moveInRoute(from, to) {
+  if (to < 0 || to >= route.length || from === to) return false;
+  const [it] = route.splice(from, 1); route.splice(to, 0, it);
+  return true;
+}
+
+/* ===== 清單 ===== */
+const ICON = {
+  grip: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>',
+  up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>',
+  down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>',
+  out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/></svg>',
+  del: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>'
+};
+const fmt = s => `${s.lat.toFixed(6)}, ${s.lon.toFixed(6)}`;
+const RS_KEY = 'gpxReportStatus.v1';
+let repStatus = {};
+try { repStatus = JSON.parse(localStorage.getItem(RS_KEY) || '{}') || {}; } catch (e) { repStatus = {}; }
+const sk = p => p.lat.toFixed(6) + ',' + p.lon.toFixed(6);
+const stOf = p => repStatus[sk(p)] || '';
+const ST_LABEL = { '': '未檢查', ok: '正常', rep: '已回報' };
+const repFilterOn = () => $('repFilter').checked;
+function saveRep() { try { localStorage.setItem(RS_KEY, JSON.stringify(repStatus)); } catch (e) {} }
+function rsBtn(p) {
+  const st = stOf(p);
+  return `<button class="rs st-${st || 'none'}" type="button" aria-label="${p.code} 回報狀態：${ST_LABEL[st]}，按一下切換">${st === 'ok' ? '✓ ' : st === 'rep' ? '✉ ' : ''}${ST_LABEL[st]}</button>`;
+}
+function cycleStatus(code) {
+  const p = byCode(code); if (!p) return;
+  const order = ['', 'ok', 'rep'], next = order[(order.indexOf(stOf(p)) + 1) % 3];
+  if (next) repStatus[sk(p)] = next; else delete repStatus[sk(p)];
+  saveRep();
+  const keepFocus = !repFilterOn() || !next;
+  renderRoute(); renderPool(); drawMap(); updateRepProgress();
+  if (keepFocus) document.querySelector(`.stop[data-code="${code}"] .rs`)?.focus();
+  announce(`${code} 狀態改為${ST_LABEL[next]}`);
+}
+function updateRepProgress() {
+  const n = points.length, ok = points.filter(p => stOf(p) === 'ok').length, rp = points.filter(p => stOf(p) === 'rep').length;
+  $('repProg').textContent = n ? `已檢查 ${ok + rp}／${n}，其中已回報 ${rp}` : '尚無點位';
+  $('repMeter').style.width = n ? Math.round((ok + rp) / n * 100) + '%' : '0%';
+}
+const mfUrl = p => `https://pipimushroom.com/mfmap.aspx?lat=${p.lat.toFixed(6)}&lng=${p.lon.toFixed(6)}&zoom=16`;
+const mfLink = p => `<a class="ibtn map" href="${mfUrl(p)}" target="_blank" rel="noopener" aria-label="在蘑菇地圖開啟 ${p.code}（新分頁）" title="在蘑菇地圖開啟">${ICON.pin}</a>`;
+
+function renderRoute(focus) {
+  const ol = els.routeList; ol.innerHTML = '';
+  $('routeCount').textContent = route.length ? `共 ${route.length} 站` : '';
+  if (!route.length) {
+    const li = document.createElement('li'); li.className = 'empty';
+    li.textContent = points.length ? '還沒有站點。在預覽圖點待選點，或按下方待選點的「加入」。' : '還沒有任何點，請先在上方輸入座標或匯入 GPX。';
+    ol.appendChild(li); return;
+  }
+  const flt = repFilterOn();
+  routePts().forEach((p, i) => {
+    if (flt && stOf(p)) return;
+    const li = document.createElement('li');
+    li.className = 'stop'; li.dataset.code = p.code;
+    li.innerHTML =
+      `<button class="handle" type="button" aria-label="第 ${i+1} 站 ${p.code} 握把，拖曳或按上下方向鍵移動">${ICON.grip}</button>` +
+      `<div class="info"><span class="num" aria-hidden="true">${i+1}</span><span class="code">${p.code}</span><span class="coord">${fmt(p)}</span>${rsBtn(p)}</div>` +
+      `<div class="acts">` + mfLink(p) +
+        `<button class="ibtn up" type="button" aria-label="${p.code} 上移" ${i === 0 || flt ? 'disabled' : ''}>${ICON.up}</button>` +
+        `<button class="ibtn down" type="button" aria-label="${p.code} 下移" ${i === route.length - 1 || flt ? 'disabled' : ''}>${ICON.down}</button>` +
+        `<button class="ibtn out" type="button" aria-label="${p.code} 移出路線">${ICON.out}</button>` +
+      `</div>`;
+    ol.appendChild(li);
+  });
+  if (focus) {
+    const li = ol.querySelector(`[data-code="${focus.code}"]`);
+    const b = li && li.querySelector('.' + focus.cls);
+    (b && !b.disabled ? b : li && li.querySelector('.handle'))?.focus();
+  }
+}
+function renderPool(focusCode) {
+  const ul = els.poolList; ul.innerHTML = '';
+  const pool = poolPts();
+  $('poolCount').textContent = points.length ? `${pool.length} 個（全部 ${points.length} 點）` : '';
+  if (!pool.length) {
+    const li = document.createElement('li'); li.className = 'empty';
+    li.textContent = points.length ? '所有點都已加入路線。' : '沒有待選點。';
+    ul.appendChild(li);
+  }
+  const flt = repFilterOn();
+  pool.forEach(p => {
+    if (flt && stOf(p)) return;
+    const li = document.createElement('li');
+    li.className = 'stop pool'; li.dataset.code = p.code;
+    li.innerHTML =
+      `<div class="info"><span class="code">${p.code}</span><span class="coord">${fmt(p)}</span>${rsBtn(p)}</div>` +
+      `<div class="acts">` + mfLink(p) +
+        `<button class="btn add" type="button" aria-label="把 ${p.code} 加入路線">${ICON.plus}加入</button>` +
+        `<button class="ibtn del" type="button" aria-label="刪除 ${p.code}">${ICON.del}</button>` +
+      `</div>`;
+    ul.appendChild(li);
+  });
+  if (focusCode !== undefined) {
+    const next = ul.querySelector('.add') || $('btnAddAll');
+    next.focus();
+  }
+}
+function renumber() {
+  [...els.routeList.children].forEach((li, i) => { const n = li.querySelector('.num'); if (n) n.textContent = i + 1; });
+}
+const idxInRoute = code => route.indexOf(code);
+
+els.routeList.addEventListener('click', e => {
+  const li = e.target.closest('.stop'); if (!li) return;
+  const code = li.dataset.code, i = idxInRoute(code);
+  if (e.target.closest('.rs')) { cycleStatus(code); return; }
+  if (e.target.closest('.up')) { pushHistory(); moveInRoute(i, i - 1); refresh({ code, cls: 'up' }); announce(`${code} 移到第 ${i} 站`); }
+  else if (e.target.closest('.down')) { pushHistory(); moveInRoute(i, i + 1); refresh({ code, cls: 'down' }); announce(`${code} 移到第 ${i+2} 站`); }
+  else if (e.target.closest('.out')) {
+    const nb = route[i + 1] || route[i - 1];
+    pushHistory(); route.splice(i, 1); refresh(nb ? { code: nb, cls: 'out' } : null);
+    toast(`${code} 已移回待選點`); announce(`${code} 已移出路線`);
+  }
+});
+els.poolList.addEventListener('click', e => {
+  const li = e.target.closest('.stop'); if (!li) return;
+  const code = li.dataset.code;
+  if (e.target.closest('.rs')) { cycleStatus(code); return; }
+  if (e.target.closest('.add')) { addToRoute(code); renderPool(code); toast(`${code} 加入為第 ${route.length} 站`); }
+  else if (e.target.closest('.del')) {
+    pushHistory(); points = points.filter(p => p.code !== code); refresh(); renderPool(code);
+    toast(`已刪除 ${code}，可按復原`); announce(`已刪除 ${code}`);
+  }
+});
+// 滑過或聚焦清單項目時在預覽標示
+['routeList', 'poolList'].forEach(k => {
+  const el = els[k];
+  const set = code => { if (hoverCode !== code) { hoverCode = code; drawMap(); } };
+  el.addEventListener('pointerover', e => { const li = e.target.closest('.stop'); set(li ? li.dataset.code : null); });
+  el.addEventListener('pointerleave', () => set(null));
+  el.addEventListener('focusin', e => { const li = e.target.closest('.stop'); set(li ? li.dataset.code : null); });
+  el.addEventListener('focusout', () => set(null));
+});
+els.routeList.addEventListener('keydown', e => {
+  const h = e.target.closest('.handle'); if (!h) return;
+  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+  if (repFilterOn()) { toast('「只顯示未檢查的點」開啟時不能調整順序'); return; }
+  e.preventDefault();
+  const code = h.closest('.stop').dataset.code, i = idxInRoute(code);
+  const to = e.key === 'ArrowUp' ? i - 1 : i + 1;
+  if (to < 0 || to >= route.length) return;
+  pushHistory(); moveInRoute(i, to); refresh({ code, cls: 'handle' });
+  announce(`${code} 移到第 ${to + 1} 站`);
+});
+
+/* 拖曳排序（滑鼠、觸控通用） */
+let drag = null;
+els.routeList.addEventListener('pointerdown', e => {
+  const h = e.target.closest('.handle'); if (!h) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  if (repFilterOn()) { toast('「只顯示未檢查的點」開啟時不能調整順序'); return; }
+  e.preventDefault();
+  const li = h.closest('.stop');
+  h.setPointerCapture(e.pointerId);
+  drag = { li, code: li.dataset.code, from: idxInRoute(li.dataset.code), snap: snap(), moved: false, y: e.clientY };
+  li.classList.add('dragging');
+});
+els.routeList.addEventListener('pointermove', e => {
+  if (!drag) return;
+  drag.y = e.clientY;
+  const { li, y } = drag;
+  let changed = false;
+  for (;;) {
+    const prev = li.previousElementSibling;
+    if (prev) { const r = prev.getBoundingClientRect(); if (y < r.top + r.height / 2) { els.routeList.insertBefore(li, prev); changed = true; continue; } }
+    const next = li.nextElementSibling;
+    if (next) { const r = next.getBoundingClientRect(); if (y > r.top + r.height / 2) { els.routeList.insertBefore(next, li); changed = true; continue; } }
+    break;
+  }
+  if (changed) {
+    moveInRoute(idxInRoute(drag.code), [...els.routeList.children].indexOf(li));
+    drag.moved = true; renumber(); drawMap(); updateOutput();
+  }
+  const edge = 70;
+  if (e.clientY < edge) window.scrollBy(0, -14);
+  else if (e.clientY > window.innerHeight - edge) window.scrollBy(0, 14);
+});
+function endDrag() {
+  if (!drag) return;
+  const { li, code, from, moved, snap: s } = drag;
+  li.classList.remove('dragging'); drag = null;
+  if (moved) { pushHistory(s); refresh({ code, cls: 'handle' }); announce(`${code} 從第 ${from + 1} 站移到第 ${idxInRoute(code) + 1} 站`); }
+}
+els.routeList.addEventListener('pointerup', endDrag);
+els.routeList.addEventListener('pointercancel', endDrag);
+els.routeList.addEventListener('lostpointercapture', endDrag);
+
+/* ===== 預覽畫布 ===== */
+const ctx = els.canvas.getContext('2d');
+let view = { k: 1, px: 0, py: 0 };
+let cssW = 0, cssH = 0;
+function resetView() { view = { k: 1, px: 0, py: 0 }; }
+function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+function geometry() {
+  const ref = points.length ? points[0] : { lat: 23.9, lon: 120.6 };
+  const cosL = Math.cos(ref.lat * Math.PI / 180);
+  const toM = (lat, lon) => ({ x: (lon - ref.lon) * LAT_M_PER_DEG * cosL, y: (lat - ref.lat) * LAT_M_PER_DEG });
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  points.forEach(p => { const m = toM(p.lat, p.lon); minX = Math.min(minX, m.x - 30); maxX = Math.max(maxX, m.x + 30); minY = Math.min(minY, m.y - 30); maxY = Math.max(maxY, m.y + 30); });
+  if (!points.length) { minX = minY = -50; maxX = maxY = 50; }
+  const pad = 56;
+  const base = Math.min((cssW - pad * 2) / Math.max(maxX - minX, 60), (cssH - pad * 2) / Math.max(maxY - minY, 60));
+  const midX = (minX + maxX) / 2, midY = (minY + maxY) / 2, s = base * view.k;
+  const toS = m => ({ x: cssW / 2 + (m.x - midX) * s + view.px, y: cssH / 2 - (m.y - midY) * s + view.py });
+  const scr = p => toS(toM(p.lat, p.lon));
+  return { toM, toS, scr, s };
+}
+function niceStep(pxPerM) {
+  const opts = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000, 10000];
+  return opts.find(v => v * pxPerM >= 70) || opts[opts.length - 1];
+}
+function sizeCanvas() {
+  const r = els.canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  cssW = r.width; cssH = r.height;
+  els.canvas.width = Math.round(r.width * dpr); els.canvas.height = Math.round(r.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawMap();
+}
+function arrow(a, b, color, rad) {
+  const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
+  if (len < rad * 2 + 6) return;
+  const ux = dx / len, uy = dy / len;
+  const sx = a.x + ux * rad, sy = a.y + uy * rad, ex = b.x - ux * (rad + 2), ey = b.y - uy * (rad + 2);
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+  const h = 12, w = 7;
+  ctx.beginPath(); ctx.moveTo(ex, ey);
+  ctx.lineTo(ex - ux * h - uy * w, ey - uy * h + ux * w);
+  ctx.lineTo(ex - ux * h + uy * w, ey - uy * h - ux * w);
+  ctx.closePath(); ctx.fill();
+}
+function pillPath(x, y, w, h) {
+  const r = h / 2;
+  ctx.beginPath();
+  ctx.moveTo(x - w / 2 + r, y - r); ctx.lineTo(x + w / 2 - r, y - r);
+  ctx.arc(x + w / 2 - r, y, r, -Math.PI / 2, Math.PI / 2);
+  ctx.lineTo(x - w / 2 + r, y + r);
+  ctx.arc(x - w / 2 + r, y, r, Math.PI / 2, Math.PI * 1.5);
+  ctx.closePath();
+}
+const RAD = 15;
+let hitBoxes = [];   // 點擊判定用
+function stBadge(st, x, y, c) {
+  if (!st) return;
+  ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2);
+  ctx.fillStyle = st === 'ok' ? c.ok : c.rep; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = c.surface; ctx.stroke();
+}
+function drawMap() {
+  if (!cssW) return;
+  const c = { bg: css('--bg'), grid: css('--grid'), ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), on: css('--on-accent'), r1: css('--r1'), r2: css('--r2'), surface: css('--surface'), focus: css('--focus'), ok: css('--ok'), rep: css('--rep') };
+  const sans = css('--sans'), mono = css('--mono');
+  ctx.clearRect(0, 0, cssW, cssH);
+  ctx.fillStyle = c.bg; ctx.fillRect(0, 0, cssW, cssH);
+  const g = geometry();
+  hitBoxes = [];
+
+  // 格線
+  const step = niceStep(g.s), o = g.toS({ x: 0, y: 0 }), stepPx = step * g.s;
+  ctx.lineWidth = 1; ctx.strokeStyle = c.grid;
+  for (let x = ((o.x % stepPx) + stepPx) % stepPx; x < cssW; x += stepPx) { ctx.beginPath(); ctx.moveTo(Math.round(x) + .5, 0); ctx.lineTo(Math.round(x) + .5, cssH); ctx.stroke(); }
+  for (let y = ((o.y % stepPx) + stepPx) % stepPx; y < cssH; y += stepPx) { ctx.beginPath(); ctx.moveTo(0, Math.round(y) + .5); ctx.lineTo(cssW, Math.round(y) + .5); ctx.stroke(); }
+  // 比例尺
+  ctx.strokeStyle = c.ink; ctx.fillStyle = c.ink; ctx.lineWidth = 2;
+  const sbx = 14, sby = cssH - 18;
+  ctx.beginPath(); ctx.moveTo(sbx, sby - 6); ctx.lineTo(sbx, sby); ctx.lineTo(sbx + stepPx, sby); ctx.lineTo(sbx + stepPx, sby - 6); ctx.stroke();
+  ctx.font = '500 14px ' + sans; ctx.textBaseline = 'bottom'; ctx.textAlign = 'center';
+  ctx.fillText(step >= 1000 ? (step / 1000) + ' km' : step + ' m', sbx + stepPx / 2, sby - 7);
+  // 指北
+  ctx.textBaseline = 'middle';
+  ctx.beginPath(); ctx.moveTo(cssW - 28, 16); ctx.lineTo(cssW - 36, 36); ctx.lineTo(cssW - 28, 31); ctx.lineTo(cssW - 20, 36); ctx.closePath(); ctx.fill();
+  ctx.font = '700 14px ' + sans; ctx.fillText('N', cssW - 28, 48);
+
+  if (!points.length) {
+    ctx.fillStyle = c.muted; ctx.font = '500 16px ' + sans;
+    ctx.fillText('加入座標後會顯示在這裡', cssW / 2, cssH / 2);
+    els.canvas.setAttribute('aria-label', '點位相對位置預覽，目前沒有任何點');
+    return;
+  }
+  const rp = routePts();
+
+  // R1／R2 細部路徑（只畫路線中的點）
+  if (els.detail.checked && g.s * 30 > 6) {
+    ctx.lineWidth = 1.6; ctx.globalAlpha = .85;
+    rp.forEach(p => {
+      const st = buildStationSteps(p, 0);
+      [[1, c.r1], [2, c.r2]].forEach(([ring, col]) => {
+        ctx.strokeStyle = col; ctx.beginPath();
+        st.filter(s => s.ring === ring).map(s => g.scr(s)).forEach((q, k) => k ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y));
+        ctx.stroke();
+      });
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  // 待選點：灰色空心膠囊＋代號
+  ctx.font = '500 13px ' + mono; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  poolPts().forEach(p => {
+    const q = g.scr(p), w = Math.max(ctx.measureText(p.code).width + 16, RAD * 2), h = RAD * 2 - 4;
+    if (p.code === hoverCode) { pillPath(q.x, q.y, w + 12, h + 12); ctx.lineWidth = 3; ctx.strokeStyle = c.focus; ctx.stroke(); }
+    pillPath(q.x, q.y, w, h);
+    ctx.fillStyle = c.surface; ctx.fill();
+    ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.strokeStyle = c.muted; ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = c.ink; ctx.fillText(p.code, q.x, q.y + 1);
+    stBadge(stOf(p), q.x + w / 2 - 2, q.y - h / 2 + 2, c);
+    hitBoxes.push({ code: p.code, x: q.x, y: q.y, rx: w / 2 + 4, ry: h / 2 + 6 });
+  });
+
+  // 路線箭頭
+  const rs = rp.map(g.scr);
+  for (let i = 0; i < rs.length - 1; i++) arrow(rs[i], rs[i + 1], c.accent, RAD);
+
+  // 路線點：藍色實心圓＋順序；旁邊標代號
+  rs.forEach((q, i) => {
+    const code = rp[i].code;
+    if (code === hoverCode) { ctx.beginPath(); ctx.arc(q.x, q.y, RAD + 7, 0, Math.PI * 2); ctx.lineWidth = 3; ctx.strokeStyle = c.focus; ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(q.x, q.y, RAD, 0, Math.PI * 2);
+    ctx.fillStyle = c.accent; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = c.surface; ctx.stroke();
+    ctx.fillStyle = c.on; ctx.font = '700 14px ' + sans; ctx.textAlign = 'center';
+    ctx.fillText(String(i + 1), q.x, q.y + 1);
+    stBadge(stOf(rp[i]), q.x + RAD * 0.75, q.y + RAD * 0.75, c);
+    // 代號標籤
+    ctx.font = '500 12px ' + mono; ctx.textAlign = 'left';
+    ctx.lineWidth = 4; ctx.strokeStyle = c.bg; ctx.strokeText(code, q.x + RAD + 4, q.y - RAD + 2);
+    ctx.fillStyle = c.ink; ctx.fillText(code, q.x + RAD + 4, q.y - RAD + 2);
+    hitBoxes.push({ code, x: q.x, y: q.y, rx: RAD + 5, ry: RAD + 5 });
+  });
+  ctx.textAlign = 'center';
+  els.canvas.setAttribute('aria-label', `點位相對位置預覽，共 ${points.length} 點，其中 ${rp.length} 點在路線中${rp.length ? '，順序為 ' + rp.map(p => p.code).join('、') : ''}。`);
+}
+
+/* 畫布互動：平移、縮放、點選 */
+const pointers = new Map();
+let gesture = null;
+els.canvas.addEventListener('pointerdown', e => {
+  els.canvas.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pointers.size === 1) gesture = { type: 'pan', sx: e.clientX, sy: e.clientY, moved: false };
+  else if (pointers.size === 2) { const [a, b] = [...pointers.values()]; gesture = { type: 'pinch', d: Math.hypot(a.x - b.x, a.y - b.y), k: view.k, moved: true }; }
+});
+els.canvas.addEventListener('pointermove', e => {
+  if (!pointers.has(e.pointerId)) return;
+  const prev = pointers.get(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (!gesture) return;
+  if (gesture.type === 'pan' && pointers.size === 1) {
+    if (Math.hypot(e.clientX - gesture.sx, e.clientY - gesture.sy) > 6) gesture.moved = true;
+    if (gesture.moved) { view.px += e.clientX - prev.x; view.py += e.clientY - prev.y; drawMap(); }
+  } else if (gesture.type === 'pinch' && pointers.size === 2) {
+    const [a, b] = [...pointers.values()], r = els.canvas.getBoundingClientRect();
+    zoomAt(gesture.k * Math.hypot(a.x - b.x, a.y - b.y) / gesture.d / view.k, (a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top);
+  }
+});
+function endPointer(e) {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.delete(e.pointerId);
+  if (gesture && gesture.type === 'pan' && !gesture.moved && e.type === 'pointerup') {
+    const r = els.canvas.getBoundingClientRect();
+    hitTest(e.clientX - r.left, e.clientY - r.top);
+  }
+  if (pointers.size === 0) gesture = null;
+  else if (pointers.size === 1) { const [p] = [...pointers.values()]; gesture = { type: 'pan', sx: p.x, sy: p.y, moved: true }; }
+}
+els.canvas.addEventListener('pointerup', endPointer);
+els.canvas.addEventListener('pointercancel', endPointer);
+els.canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = els.canvas.getBoundingClientRect();
+  zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
+}, { passive: false });
+function zoomAt(f, mx, my) {
+  const nk = Math.min(Math.max(view.k * f, 0.3), 40); f = nk / view.k;
+  view.px = (mx - cssW / 2) - ((mx - cssW / 2) - view.px) * f;
+  view.py = (my - cssH / 2) - ((my - cssH / 2) - view.py) * f;
+  view.k = nk; drawMap();
+}
+function hitTest(x, y) {
+  // 後畫的在上層，所以倒著找
+  for (let i = hitBoxes.length - 1; i >= 0; i--) {
+    const b = hitBoxes[i];
+    if (Math.abs(x - b.x) <= b.rx && Math.abs(y - b.y) <= b.ry) {
+      if (route.includes(b.code)) { removeFromRoute(b.code); toast(`${b.code} 已移回待選點`); }
+      else { addToRoute(b.code); toast(`${b.code} 加入為第 ${route.length} 站`); }
+      return;
+    }
+  }
+}
+$('zoomIn').onclick = () => zoomAt(1.4, cssW / 2, cssH / 2);
+$('zoomOut').onclick = () => zoomAt(1 / 1.4, cssW / 2, cssH / 2);
+$('zoomFit').onclick = () => { resetView(); drawMap(); };
+
+/* ===== 輸出 ===== */
+/* ===== 檔名組合 ===== */
+const NF = { prefix: $('nPrefix'), num: $('nNum'), town: $('nTown'), area: $('nArea'), hour: $('nHour') };
+const NAME_KEY = 'gpxNameFields.v1';
+const HIST_FIELDS = { town: 'dlTown', area: 'dlArea' };
+let nameHist = { town: [], area: [] };
+const cleanPart = v => String(v).trim().replace(/[\\/:*?"<>|]/g, '');
+function hourVal() {
+  const raw = NF.hour.value.trim();
+  if (raw === '') { NF.hour.removeAttribute('aria-invalid'); $('nHourHint').textContent = '24 小時制，填 0～23'; return ''; }
+  const h = Number(raw);
+  const ok = Number.isInteger(h) && h >= 0 && h <= 23;
+  NF.hour.setAttribute('aria-invalid', ok ? 'false' : 'true');
+  $('nHourHint').textContent = ok ? '24 小時制，填 0～23' : '請填 0～23 的整數，這格暫不列入檔名';
+  return ok ? h + '點' : '';
+}
+function numVal() {
+  const raw = NF.num.value.trim();
+  if (raw === '') { NF.num.removeAttribute('aria-invalid'); $('nNumHint').textContent = '2 位數字，例如 05'; return ''; }
+  const ok = /^\d{1,2}$/.test(raw);
+  NF.num.setAttribute('aria-invalid', ok ? 'false' : 'true');
+  $('nNumHint').textContent = ok ? '2 位數字，例如 05' : '請填 1～2 位數字，這格暫不列入檔名';
+  return ok ? raw.padStart(2, '0') : '';
+}
+function fileName() {
+  // 格式：(前綴)編號_縣市鄉鎮名_區域指標名_點數_預計摘採時間
+  const pre = NF.prefix.value ? `(${NF.prefix.value})` : '';
+  const num = numVal();
+  const parts = [cleanPart(NF.town.value), cleanPart(NF.area.value), route.length ? route.length + '個' : '', hourVal()].filter(Boolean);
+  const head = pre + num;
+  const name = num ? head + (parts.length ? '_' : '') + parts.join('_') : head + parts.join('_');
+  return name || todayName();
+}
+function saveNameFields() {
+  try { localStorage.setItem(NAME_KEY, JSON.stringify({ v: { prefix: NF.prefix.value, num: NF.num.value, town: NF.town.value, area: NF.area.value, hour: NF.hour.value }, hist: nameHist })); } catch (e) {}
+}
+function renderDatalists() {
+  Object.entries(HIST_FIELDS).forEach(([k, id]) => {
+    const dl = $(id); dl.innerHTML = '';
+    nameHist[k].forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); });
+  });
+}
+function rememberNameParts() {
+  Object.keys(HIST_FIELDS).forEach(k => {
+    const v = NF[k].value.trim(); if (!v) return;
+    nameHist[k] = [v, ...nameHist[k].filter(x => x !== v)].slice(0, 20);
+  });
+  renderDatalists(); saveNameFields();
+}
+function loadNameFields() {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(NAME_KEY) || 'null'); } catch (e) {}
+  if (d && d.v) { Object.keys(NF).forEach(k => { NF[k].value = d.v[k] || ''; }); }
+  if (NF.prefix.value !== '臨時') NF.prefix.value = '';
+  if (d && d.hist) Object.keys(nameHist).forEach(k => { nameHist[k] = Array.isArray(d.hist[k]) ? d.hist[k] : []; });
+  renderDatalists();
+}
+Object.values(NF).forEach(el => { el.addEventListener('input', () => { updateOutput(); saveNameFields(); }); el.addEventListener('change', () => { updateOutput(); saveNameFields(); }); });
+NF.num.addEventListener('blur', () => { const v = numVal(); if (v) { NF.num.value = v; saveNameFields(); updateOutput(); } });
+
+function currentGPX() { return buildGPX(buildAllSteps(routePts()), fileName()); }
+function updateOutput() {
+  const steps = buildAllSteps(routePts());
+  let dist = 0;
+  for (let i = 1; i < steps.length; i++) {
+    const dLat = (steps[i].lat - steps[i-1].lat) * LAT_M_PER_DEG;
+    const dLon = (steps[i].lon - steps[i-1].lon) * LAT_M_PER_DEG * Math.cos(steps[i].lat * Math.PI / 180);
+    dist += Math.hypot(dLat, dLon);
+  }
+  const km = dist / 1000, speed = parseFloat(els.speed.value) || 19;
+  $('stStops').textContent = route.length;
+  $('stPts').textContent = steps.length;
+  $('stKm').textContent = km.toFixed(2);
+  $('stMin').textContent = Math.round(km / speed * 60);
+  $('nCount').textContent = route.length + '個';
+  $('namePreview').textContent = fileName() + '.gpx';
+  els.gpxOut.value = steps.length ? currentGPX() : '';
+}
+function refresh(focus) {
+  renderRoute(focus); renderPool(); drawMap(); updateOutput(); save(); updateRepProgress();
+  els.undo.disabled = history.length === 0;
+}
+
+$('btnCopy').addEventListener('click', () => {
+  if (!route.length) { toast('路線是空的，請先加入站點'); return; }
+  const text = currentGPX(); rememberNameParts();
+  const fallback = () => { $('gpxDetails').open = true; els.gpxOut.focus(); els.gpxOut.select(); toast('無法自動複製，已選取全文，請按 Ctrl+C 或長按複製'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => toast(`已複製 GPX（${route.length} 站、${route.length * 24} 點）`), fallback);
+  else fallback();
+});
+
+let dlNS;
+if (window.claude && typeof window.claude.use === 'function') {
+  window.claude.use('downloads').then(ns => { dlNS = ns; if (!ns) $('btnDownload').hidden = true; }).catch(() => { dlNS = null; $('btnDownload').hidden = true; });
+}
+$('btnDownload').addEventListener('click', async () => {
+  if (!route.length) { toast('路線是空的，請先加入站點'); return; }
+  const text = currentGPX();
+  const fname = fileName(); rememberNameParts();
+  if (dlNS) {
+    try { await dlNS.save({ filename: fname + '.gpx', data: text }); toast('已下載 ' + fname + '.gpx'); }
+    catch (err) {
+      if (err && err.code === 'rejected_extension') {
+        try { await dlNS.save({ filename: fname + '.gpx.txt', data: text }); toast('已存成 .txt，請把檔名最後的 .txt 刪掉'); }
+        catch (e2) { if (e2 && e2.code !== 'declined') toast('無法下載，請改用「複製 GPX」'); }
+      } else if (!(err && err.code === 'declined')) toast('無法下載，請改用「複製 GPX」');
+    }
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'application/gpx+xml' }));
+  a.download = fname + '.gpx'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  toast('已下載 ' + fname + '.gpx');
+});
+
+/* ===== GPX 匯入介面 ===== */
+function showImport(kind, title, body) {
+  const box = $('importMsg');
+  box.className = 'imsg ' + kind; box.innerHTML = '';
+  const t = document.createElement('strong'); t.textContent = title; box.appendChild(t);
+  if (body) { const p = document.createElement('span'); p.textContent = body; box.appendChild(p); }
+  box.hidden = false;
+}
+function handleGPXText(text, fileName) {
+  const src = fileName ? `「${fileName}」` : '貼上的 GPX';
+  const pts = parseGPXPoints(text);
+  if (!pts.length) { showImport('err', `${src}裡沒有找到軌跡點`, '請確認是 GPX 檔（內容有 trkpt 或 wpt）。'); return; }
+  const r = detectCenters(pts);
+  if (!r.centers.length) { showImport('err', `讀到 ${pts.length} 點，但找不到原工具的路徑形狀`, '目前只能解析 Suderpanda 產生的雙圈、單圈、互動 20、跳躍模式。'); return; }
+  els.input.value = r.centers.map(c => `${c.lat.toFixed(7)}, ${c.lon.toFixed(7)}`).join('\n');
+  const n = r.centers.length, expect = n * r.per, miss = r.total - r.covered;
+  let body = `${src}共 ${r.total} 點，${r.covered} 點對得上（每站 ${r.per} 點 × ${n} 站 = ${expect} 點）。`;
+  if (miss > 0) body += `有 ${miss} 點不屬於任何一站，已略過。`;
+  body += '中心座標已放進上方輸入框，按「加入待選點」或「取代全部點」匯入。';
+  showImport(miss === 0 && r.total === expect ? 'ok' : 'warn', `偵測為「${r.label}」模式，找到 ${n} 站`, body);
+  announce(`偵測為${r.label}模式，找到 ${n} 站`);
+}
+function readGPXFile(file) {
+  if (!file) return;
+  const fr = new FileReader();
+  fr.onload = () => handleGPXText(String(fr.result), file.name);
+  fr.onerror = () => showImport('err', '檔案讀取失敗', '請重新選擇檔案。');
+  fr.readAsText(file);
+}
+$('btnPickGpx').onclick = () => $('gpxFile').click();
+$('gpxFile').onchange = e => { readGPXFile(e.target.files[0]); e.target.value = ''; };
+let gpxT;
+els.input.addEventListener('input', () => {
+  clearTimeout(gpxT);
+  gpxT = setTimeout(() => { if (/<(?:trkpt|wpt|rtept)\b/i.test(els.input.value)) handleGPXText(els.input.value); }, 300);
+});
+const inPanel = $('inPanel');
+inPanel.addEventListener('dragover', e => { if ([...(e.dataTransfer?.types || [])].includes('Files')) { e.preventDefault(); inPanel.classList.add('dropping'); } });
+inPanel.addEventListener('dragleave', e => { if (!inPanel.contains(e.relatedTarget)) inPanel.classList.remove('dropping'); });
+inPanel.addEventListener('drop', e => { e.preventDefault(); inPanel.classList.remove('dropping'); readGPXFile(e.dataTransfer.files[0]); });
+
+$('btnCopyCenters').addEventListener('click', () => {
+  if (!route.length) { toast('路線是空的'); return; }
+  const text = routePts().map(p => `${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}`).join('\n');
+  const fallback = () => { els.input.value = text; els.input.focus(); els.input.select(); toast('無法自動複製，已放進上方輸入框並全選'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => toast(`已複製 ${route.length} 個路線座標`), fallback);
+  else fallback();
+});
+
+/* ===== 其他按鈕 ===== */
+$('btnAppend').onclick = () => addCoords(false);
+$('btnReplace').onclick = () => addCoords(true);
+$('btnUndo').onclick = undo;
+$('btnReverse').onclick = () => { if (route.length < 2) return; pushHistory(); route.reverse(); refresh(); toast('路線已反轉'); announce('路線已反轉'); };
+$('btnClearRoute').onclick = () => { if (!route.length) return; pushHistory(); route = []; refresh(); toast('路線已清空，點都回到待選，可按復原'); announce('路線已清空'); };
+$('btnAddAll').onclick = () => {
+  const pool = poolPts(); if (!pool.length) return;
+  pushHistory(); route.push(...pool.map(p => p.code)); refresh();
+  toast(`已依代號加入 ${pool.length} 個點`); announce(`已加入 ${pool.length} 個點`);
+};
+$('btnClearAll').onclick = () => { if (!points.length) return; pushHistory(); points = []; route = []; pNext = 1; resetView(); refresh(); toast('已刪除全部點，可按復原'); announce('已刪除全部點'); };
+els.detail.onchange = () => { drawMap(); save(); };
+els.speed.oninput = () => { updateOutput(); save(); };
+
+$('btnTop').onclick = () => {
+  window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  $('pageTop').focus({ preventScroll: true });
+};
+
+$('repFilter').onchange = () => { renderRoute(); renderPool(); announce($('repFilter').checked ? '只顯示未檢查的點' : '顯示全部點'); };
+let repClearT = 0;
+$('btnRepClear').onclick = function () {
+  if (!Object.keys(repStatus).length) { toast('沒有回報狀態可清除'); return; }
+  if (!repClearT) {
+    this.textContent = '再按一次確定清除'; this.classList.add('primary');
+    repClearT = setTimeout(() => { repClearT = 0; this.textContent = '清除回報狀態'; this.classList.remove('primary'); }, 4000);
+    return;
+  }
+  clearTimeout(repClearT); repClearT = 0; this.textContent = '清除回報狀態'; this.classList.remove('primary');
+  repStatus = {}; saveRep(); renderRoute(); renderPool(); drawMap(); updateRepProgress(); toast('已清除全部回報狀態'); announce('已清除全部回報狀態');
+};
+
+$('bmLink').addEventListener('click', e => { e.preventDefault(); $('bmTip').textContent = '請用滑鼠把按鈕「拖曳」到書籤列，而不是點擊。'; });
+function copyFrom(text, okMsg, fallbackEl) {
+  const fb = () => { if (fallbackEl) { fallbackEl.closest('details') && (fallbackEl.closest('details').open = true); fallbackEl.focus(); fallbackEl.select(); } toast('無法自動複製，請按 Ctrl+C'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => toast(okMsg), fb); else fb();
+}
+$('btnCopyBm').onclick = () => copyFrom($('bmLink').getAttribute('href'), '已複製書籤網址');
+$('btnCopyGas').onclick = () => copyFrom($('gasCode').value, '已複製 GAS 程式碼', $('gasCode'));
+
+/* ===== 提示 ===== */
+let toastT;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); }
+function announce(msg) { const l = $('live'); l.textContent = ''; setTimeout(() => { l.textContent = msg; }, 30); }
+
+/* ===== 主題切換時重畫 ===== */
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawMap);
+new MutationObserver(drawMap).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawMap);
+
+/* ===== 啟動 ===== */
+loadNameFields();
+if (!load()) {
+  // 沿用舊版清單（依原順序編號並加入路線），沒有就載入範例
+  let old = null;
+  try { old = JSON.parse(localStorage.getItem('gpxStopOrder.v1') || 'null'); } catch (e) {}
+  if (old && old.stops && old.stops.length) {
+    old.stops.forEach(([lat, lon]) => points.push({ code: 'P' + pNext++, lat, lon }));
+  } else {
+    els.input.value = SAMPLE;
+    parseCoords(SAMPLE).pts.forEach(p => points.push({ code: 'P' + pNext++, lat: p.lat, lon: p.lon }));
+    toast('已載入 3 個範例座標，點預覽圖上的點就能排進路線');
+  }
+}
+els.undo.disabled = true;
+new ResizeObserver(sizeCanvas).observe(els.canvas);
+refresh();
+</script>
+
+</body>
+</html>
