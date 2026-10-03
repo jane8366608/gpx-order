@@ -57,7 +57,7 @@ header.top p{margin:0;color:var(--muted);font-size:.95rem}
 .layout{display:grid;gap:20px;grid-template-columns:1fr}
 @media (min-width:960px){
   .layout{grid-template-columns:minmax(420px,540px) 1fr;align-items:start}
-  .preview{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);grid-column:2;grid-row:1 / span 7}
+  .preview{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);grid-column:2;grid-row:1 / span 6}
 }
 section.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;display:grid;gap:12px}
 section.panel h2{font-size:1.15rem;margin:0;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
@@ -111,23 +111,38 @@ section.panel.dropping{outline:3px dashed var(--accent);outline-offset:-6px}
 .mk{display:inline-grid;place-items:center;min-width:26px;height:22px;border-radius:999px;font-style:normal;font-size:.75rem;font-weight:700;margin-right:6px;vertical-align:middle;padding:0 6px}
 .mk.pool{border:2px dashed var(--muted);background:var(--surface);color:var(--ink);font-family:var(--mono)}
 .mk.route{background:var(--accent);color:var(--on-accent);width:24px;min-width:24px;height:24px;padding:0}
-.rs{flex:none;min-height:36px;padding:2px 10px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface);color:var(--muted);font-size:.85rem;cursor:pointer;font-weight:500}
-.rs.st-ok{border-color:var(--ok);color:var(--ok)}
-.rs.st-rep{border-color:var(--rep);color:var(--rep)}
-.dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:middle}
-.rbar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
-.rprog{font-variant-numeric:tabular-nums;font-weight:500}
-.meter{height:10px;border-radius:999px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line)}
-.meter span{display:block;height:100%;background:var(--ok)}
 .steps{margin:0;padding-left:1.4em;display:grid;gap:4px}
 .bm{text-decoration:none;cursor:grab}
 kbd{font-family:var(--mono);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--bg);font-size:.85em}
 .dbody{padding:4px 12px 12px;display:grid;gap:8px}
 .dbody p{margin:0}
 #gasCode{min-height:10em;font-size:.8rem}
+.scroller{max-height:min(26rem,60vh);overflow-y:auto;overscroll-behavior:contain;border:1px solid var(--line);border-radius:8px;padding:4px;background:var(--surface-2)}
+.scroller > .stops{gap:4px}
+.scroller .stop{padding:2px 4px;gap:6px;grid-template-columns:40px 1fr auto}
+.scroller .stop.pool{grid-template-columns:1fr auto;padding-left:10px}
+.scroller .handle,.scroller .ibtn{width:40px;height:40px}
+.scroller .info{gap:8px;padding:0;flex-wrap:nowrap}
+.scroller .num{width:1.9em;height:1.9em;font-size:.88rem}
+.scroller .coord{font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.scroller .btn.add{min-height:40px;padding:4px 10px}
+.scroller .acts{gap:2px}
+.scroller .empty{border:0}
+.dllist{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.dlrec{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 6px 6px 12px}
+.dlname{font-weight:500;overflow-wrap:anywhere}
+.dlmeta{grid-column:1;font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.dlacts{grid-column:2;grid-row:1 / span 2;display:flex;gap:4px;align-items:center}
+.btn.sm{min-height:40px;padding:4px 10px;font-size:.9rem}
+.btn.sm svg{width:16px;height:16px}
+@media (max-width:520px){.dlrec{grid-template-columns:1fr}.dlacts{grid-column:1;grid-row:auto;justify-content:flex-end;flex-wrap:wrap}}
 .empty{padding:18px;border:1px dashed var(--line);border-radius:8px;color:var(--muted);text-align:center}
 @media (max-width:520px){
   .stop{grid-template-columns:40px 1fr;}
+  .scroller .stop{grid-template-columns:40px 1fr auto}
+  .scroller .stop.pool{grid-template-columns:1fr auto}
+  .scroller .acts{grid-column:auto}
+  .scroller .coord{display:none}
   .acts{grid-column:1 / -1;justify-content:flex-end}
 }
 
@@ -223,8 +238,6 @@ details textarea{border:0;border-top:1px solid var(--line);border-radius:0 0 8px
         <span><i class="mk pool" aria-hidden="true">P</i>待選點</span>
         <span><i class="mk route" aria-hidden="true">1</i>路線（數字為順序）</span>
         <span><i class="sw order" aria-hidden="true"></i>行走方向</span>
-        <span><i class="dot" style="background:var(--ok)" aria-hidden="true"></i>正常</span>
-        <span><i class="dot" style="background:var(--rep)" aria-hidden="true"></i>已回報</span>
         <span><i class="sw r1" aria-hidden="true"></i>R1 30 m</span>
         <span><i class="sw r2" aria-hidden="true"></i>R2 15 m</span>
         <label class="check"><input type="checkbox" id="showDetail" checked> 顯示 R1／R2 路徑</label>
@@ -232,23 +245,11 @@ details textarea{border:0;border-top:1px solid var(--line);border-radius:0 0 8px
       <p class="note">拖曳平移、滾輪或雙指縮放。滑過或聚焦清單中的點，預覽會標出位置。</p>
     </section>
 
-    <!-- 回報檢查 -->
-    <section class="panel" id="reportPanel" aria-labelledby="repTitle">
-      <h2 id="repTitle">回報檢查 <span class="sub">逐點到蘑菇地圖確認</span></h2>
-      <p class="hint">點每個點的「未檢查」切換狀態：未檢查 → 正常 → 已回報。按藍色定位圖示可在蘑菇地圖開啟該點。</p>
-      <div class="meter" aria-hidden="true"><span id="repMeter" style="width:0%"></span></div>
-      <div class="rbar">
-        <span class="rprog" id="repProg" role="status">尚無點位</span>
-        <label class="check"><input type="checkbox" id="repFilter"> 只顯示未檢查的點</label>
-        <button class="btn" id="btnRepClear" type="button">清除回報狀態</button>
-      </div>
-    </section>
-
     <!-- 路線 -->
     <section class="panel" id="routePanel" aria-labelledby="routeTitle" tabindex="-1">
       <h2 id="routeTitle">路線 <span class="sub" id="routeCount"></span></h2>
-      <p id="dragHelp" class="hint">按住左側握把上下拖曳調整順序；鍵盤可聚焦握把後按 ↑ ↓ 移動。</p>
-      <ol class="stops" id="routeList" aria-describedby="dragHelp"></ol>
+      <p id="dragHelp" class="hint">按住左側握把上下拖曳調整順序（拖到清單上下緣會自動捲動）；鍵盤可聚焦握把後按 ↑ ↓ 移動。</p>
+      <div class="scroller" id="routeScroll"><ol class="stops" id="routeList" aria-describedby="dragHelp"></ol></div>
       <div class="row">
         <button class="btn" id="btnUndo" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>復原</button>
         <button class="btn" id="btnReverse" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></svg>路線反轉</button>
@@ -260,7 +261,7 @@ details textarea{border:0;border-top:1px solid var(--line);border-radius:0 0 8px
     <!-- 待選點 -->
     <section class="panel" id="poolPanel" aria-labelledby="poolTitle">
       <h2 id="poolTitle">待選點 <span class="sub" id="poolCount"></span></h2>
-      <ul class="stops" id="poolList"></ul>
+      <div class="scroller" id="poolScroll"><ul class="stops" id="poolList"></ul></div>
       <div class="row">
         <button class="btn" id="btnAddAll" type="button">全部依代號加入</button>
         <button class="btn" id="btnClearAll" type="button">刪除全部點</button>
@@ -280,13 +281,12 @@ details textarea{border:0;border-top:1px solid var(--line);border-radius:0 0 8px
         <legend>軌跡名稱</legend>
         <div class="nf">
           <div><label for="nPrefix">前綴</label><select id="nPrefix" aria-describedby="nPrefixHint"><option value="">不加</option><option value="臨時">臨時</option></select><small id="nPrefixHint">選「臨時」會加上 (臨時)</small></div>
-          <div><label for="nNum">編號</label><input type="text" id="nNum" inputmode="numeric" maxlength="2" autocomplete="off" aria-describedby="nNumHint"><small id="nNumHint">2 位數字，例如 05</small></div>
-          <div><label for="nTown">縣市鄉鎮名</label><input type="text" id="nTown" list="dlTown" autocomplete="off"></div>
-          <div><label for="nArea">區域指標名</label><input type="text" id="nArea" list="dlArea" autocomplete="off"></div>
+          <div><label for="nNum">編號</label><input type="text" id="nNum" inputmode="numeric" maxlength="2" autocomplete="off" aria-describedby="nNumHint"><small id="nNumHint">自動接續下載紀錄，可手動改</small></div>
+          <div><label for="nTown">縣市鄉鎮名</label><input type="text" id="nTown" autocomplete="off"></div>
+          <div><label for="nArea">區域指標名</label><input type="text" id="nArea" autocomplete="off"></div>
           <div><span class="lbl" id="nCountLbl">點數</span><output id="nCount" aria-labelledby="nCountLbl">0個</output><small>依路線站數自動計算</small></div>
           <div><label for="nHour">預計摘採時間</label><div class="suffix"><input type="number" id="nHour" min="0" max="23" step="1" inputmode="numeric" aria-describedby="nHourHint"><span aria-hidden="true">點</span></div><small id="nHourHint">24 小時制，填 0～23</small></div>
         </div>
-        <datalist id="dlTown"></datalist><datalist id="dlArea"></datalist>
         <div class="name-preview"><span class="lbl">完整檔名</span><output id="namePreview" aria-live="polite"></output></div>
       </fieldset>
       <div class="fields">
@@ -302,6 +302,14 @@ details textarea{border:0;border-top:1px solid var(--line);border-radius:0 0 8px
         <textarea id="gpxOut" readonly spellcheck="false"></textarea>
       </details>
       <p class="note">每站 24 點：R1 15 點＋R2 9 點。R1 第 13 點與 R2 第 1 點同座標，依原工具保留。</p>
+    </section>
+
+    <!-- 下載紀錄 -->
+    <section class="panel" id="dlPanel" aria-labelledby="dlTitle">
+      <h2 id="dlTitle">下載紀錄 <span class="sub" id="dlCount"></span></h2>
+      <p class="hint">每次按「下載 .gpx」會自動記錄，只存在這台裝置的這個瀏覽器。</p>
+      <div class="scroller"><ul class="dllist" id="dlList"></ul></div>
+      <div class="row"><button class="btn" id="btnDlClear" type="button">清除全部紀錄</button></div>
     </section>
 
     <!-- 果實摘採器 -->
@@ -787,37 +795,12 @@ const ICON = {
   down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>',
   out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-4"/></svg>',
   del: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  dl: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
   pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
   plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>'
 };
 const fmt = s => `${s.lat.toFixed(6)}, ${s.lon.toFixed(6)}`;
-const RS_KEY = 'gpxReportStatus.v1';
-let repStatus = {};
-try { repStatus = JSON.parse(localStorage.getItem(RS_KEY) || '{}') || {}; } catch (e) { repStatus = {}; }
-const sk = p => p.lat.toFixed(6) + ',' + p.lon.toFixed(6);
-const stOf = p => repStatus[sk(p)] || '';
-const ST_LABEL = { '': '未檢查', ok: '正常', rep: '已回報' };
-const repFilterOn = () => $('repFilter').checked;
-function saveRep() { try { localStorage.setItem(RS_KEY, JSON.stringify(repStatus)); } catch (e) {} }
-function rsBtn(p) {
-  const st = stOf(p);
-  return `<button class="rs st-${st || 'none'}" type="button" aria-label="${p.code} 回報狀態：${ST_LABEL[st]}，按一下切換">${st === 'ok' ? '✓ ' : st === 'rep' ? '✉ ' : ''}${ST_LABEL[st]}</button>`;
-}
-function cycleStatus(code) {
-  const p = byCode(code); if (!p) return;
-  const order = ['', 'ok', 'rep'], next = order[(order.indexOf(stOf(p)) + 1) % 3];
-  if (next) repStatus[sk(p)] = next; else delete repStatus[sk(p)];
-  saveRep();
-  const keepFocus = !repFilterOn() || !next;
-  renderRoute(); renderPool(); drawMap(); updateRepProgress();
-  if (keepFocus) document.querySelector(`.stop[data-code="${code}"] .rs`)?.focus();
-  announce(`${code} 狀態改為${ST_LABEL[next]}`);
-}
-function updateRepProgress() {
-  const n = points.length, ok = points.filter(p => stOf(p) === 'ok').length, rp = points.filter(p => stOf(p) === 'rep').length;
-  $('repProg').textContent = n ? `已檢查 ${ok + rp}／${n}，其中已回報 ${rp}` : '尚無點位';
-  $('repMeter').style.width = n ? Math.round((ok + rp) / n * 100) + '%' : '0%';
-}
+try { localStorage.removeItem('gpxReportStatus.v1'); } catch (e) {}
 const mfUrl = p => `https://pipimushroom.com/mfmap.aspx?lat=${p.lat.toFixed(6)}&lng=${p.lon.toFixed(6)}&zoom=16`;
 const mfLink = p => `<a class="ibtn map" href="${mfUrl(p)}" target="_blank" rel="noopener" aria-label="在蘑菇地圖開啟 ${p.code}（新分頁）" title="在蘑菇地圖開啟">${ICON.pin}</a>`;
 
@@ -829,17 +812,15 @@ function renderRoute(focus) {
     li.textContent = points.length ? '還沒有站點。在預覽圖點待選點，或按下方待選點的「加入」。' : '還沒有任何點，請先在上方輸入座標或匯入 GPX。';
     ol.appendChild(li); return;
   }
-  const flt = repFilterOn();
   routePts().forEach((p, i) => {
-    if (flt && stOf(p)) return;
     const li = document.createElement('li');
     li.className = 'stop'; li.dataset.code = p.code;
     li.innerHTML =
       `<button class="handle" type="button" aria-label="第 ${i+1} 站 ${p.code} 握把，拖曳或按上下方向鍵移動">${ICON.grip}</button>` +
-      `<div class="info"><span class="num" aria-hidden="true">${i+1}</span><span class="code">${p.code}</span><span class="coord">${fmt(p)}</span>${rsBtn(p)}</div>` +
+      `<div class="info"><span class="num" aria-hidden="true">${i+1}</span><span class="code">${p.code}</span><span class="coord">${fmt(p)}</span></div>` +
       `<div class="acts">` + mfLink(p) +
-        `<button class="ibtn up" type="button" aria-label="${p.code} 上移" ${i === 0 || flt ? 'disabled' : ''}>${ICON.up}</button>` +
-        `<button class="ibtn down" type="button" aria-label="${p.code} 下移" ${i === route.length - 1 || flt ? 'disabled' : ''}>${ICON.down}</button>` +
+        `<button class="ibtn up" type="button" aria-label="${p.code} 上移" ${i === 0 ? 'disabled' : ''}>${ICON.up}</button>` +
+        `<button class="ibtn down" type="button" aria-label="${p.code} 下移" ${i === route.length - 1 ? 'disabled' : ''}>${ICON.down}</button>` +
         `<button class="ibtn out" type="button" aria-label="${p.code} 移出路線">${ICON.out}</button>` +
       `</div>`;
     ol.appendChild(li);
@@ -859,13 +840,11 @@ function renderPool(focusCode) {
     li.textContent = points.length ? '所有點都已加入路線。' : '沒有待選點。';
     ul.appendChild(li);
   }
-  const flt = repFilterOn();
   pool.forEach(p => {
-    if (flt && stOf(p)) return;
     const li = document.createElement('li');
     li.className = 'stop pool'; li.dataset.code = p.code;
     li.innerHTML =
-      `<div class="info"><span class="code">${p.code}</span><span class="coord">${fmt(p)}</span>${rsBtn(p)}</div>` +
+      `<div class="info"><span class="code">${p.code}</span><span class="coord">${fmt(p)}</span></div>` +
       `<div class="acts">` + mfLink(p) +
         `<button class="btn add" type="button" aria-label="把 ${p.code} 加入路線">${ICON.plus}加入</button>` +
         `<button class="ibtn del" type="button" aria-label="刪除 ${p.code}">${ICON.del}</button>` +
@@ -885,7 +864,6 @@ const idxInRoute = code => route.indexOf(code);
 els.routeList.addEventListener('click', e => {
   const li = e.target.closest('.stop'); if (!li) return;
   const code = li.dataset.code, i = idxInRoute(code);
-  if (e.target.closest('.rs')) { cycleStatus(code); return; }
   if (e.target.closest('.up')) { pushHistory(); moveInRoute(i, i - 1); refresh({ code, cls: 'up' }); announce(`${code} 移到第 ${i} 站`); }
   else if (e.target.closest('.down')) { pushHistory(); moveInRoute(i, i + 1); refresh({ code, cls: 'down' }); announce(`${code} 移到第 ${i+2} 站`); }
   else if (e.target.closest('.out')) {
@@ -897,7 +875,6 @@ els.routeList.addEventListener('click', e => {
 els.poolList.addEventListener('click', e => {
   const li = e.target.closest('.stop'); if (!li) return;
   const code = li.dataset.code;
-  if (e.target.closest('.rs')) { cycleStatus(code); return; }
   if (e.target.closest('.add')) { addToRoute(code); renderPool(code); toast(`${code} 加入為第 ${route.length} 站`); }
   else if (e.target.closest('.del')) {
     pushHistory(); points = points.filter(p => p.code !== code); refresh(); renderPool(code);
@@ -916,7 +893,6 @@ els.poolList.addEventListener('click', e => {
 els.routeList.addEventListener('keydown', e => {
   const h = e.target.closest('.handle'); if (!h) return;
   if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-  if (repFilterOn()) { toast('「只顯示未檢查的點」開啟時不能調整順序'); return; }
   e.preventDefault();
   const code = h.closest('.stop').dataset.code, i = idxInRoute(code);
   const to = e.key === 'ArrowUp' ? i - 1 : i + 1;
@@ -930,7 +906,6 @@ let drag = null;
 els.routeList.addEventListener('pointerdown', e => {
   const h = e.target.closest('.handle'); if (!h) return;
   if (e.pointerType === 'mouse' && e.button !== 0) return;
-  if (repFilterOn()) { toast('「只顯示未檢查的點」開啟時不能調整順序'); return; }
   e.preventDefault();
   const li = h.closest('.stop');
   h.setPointerCapture(e.pointerId);
@@ -953,9 +928,11 @@ els.routeList.addEventListener('pointermove', e => {
     moveInRoute(idxInRoute(drag.code), [...els.routeList.children].indexOf(li));
     drag.moved = true; renumber(); drawMap(); updateOutput();
   }
-  const edge = 70;
-  if (e.clientY < edge) window.scrollBy(0, -14);
-  else if (e.clientY > window.innerHeight - edge) window.scrollBy(0, 14);
+  const sc = $('routeScroll'), sr = sc.getBoundingClientRect(), edge = 48;
+  if (e.clientY < sr.top + edge && sc.scrollTop > 0) sc.scrollTop -= 12;
+  else if (e.clientY > sr.bottom - edge && sc.scrollTop + sc.clientHeight < sc.scrollHeight) sc.scrollTop += 12;
+  else if (e.clientY < 70) window.scrollBy(0, -14);
+  else if (e.clientY > window.innerHeight - 70) window.scrollBy(0, 14);
 });
 function endDrag() {
   if (!drag) return;
@@ -1023,15 +1000,9 @@ function pillPath(x, y, w, h) {
 }
 const RAD = 15;
 let hitBoxes = [];   // 點擊判定用
-function stBadge(st, x, y, c) {
-  if (!st) return;
-  ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2);
-  ctx.fillStyle = st === 'ok' ? c.ok : c.rep; ctx.fill();
-  ctx.lineWidth = 2; ctx.strokeStyle = c.surface; ctx.stroke();
-}
 function drawMap() {
   if (!cssW) return;
-  const c = { bg: css('--bg'), grid: css('--grid'), ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), on: css('--on-accent'), r1: css('--r1'), r2: css('--r2'), surface: css('--surface'), focus: css('--focus'), ok: css('--ok'), rep: css('--rep') };
+  const c = { bg: css('--bg'), grid: css('--grid'), ink: css('--ink'), muted: css('--muted'), accent: css('--accent'), on: css('--on-accent'), r1: css('--r1'), r2: css('--r2'), surface: css('--surface'), focus: css('--focus') };
   const sans = css('--sans'), mono = css('--mono');
   ctx.clearRect(0, 0, cssW, cssH);
   ctx.fillStyle = c.bg; ctx.fillRect(0, 0, cssW, cssH);
@@ -1085,7 +1056,6 @@ function drawMap() {
     ctx.fillStyle = c.surface; ctx.fill();
     ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.strokeStyle = c.muted; ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle = c.ink; ctx.fillText(p.code, q.x, q.y + 1);
-    stBadge(stOf(p), q.x + w / 2 - 2, q.y - h / 2 + 2, c);
     hitBoxes.push({ code: p.code, x: q.x, y: q.y, rx: w / 2 + 4, ry: h / 2 + 6 });
   });
 
@@ -1101,7 +1071,6 @@ function drawMap() {
     ctx.fillStyle = c.accent; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = c.surface; ctx.stroke();
     ctx.fillStyle = c.on; ctx.font = '700 14px ' + sans; ctx.textAlign = 'center';
     ctx.fillText(String(i + 1), q.x, q.y + 1);
-    stBadge(stOf(rp[i]), q.x + RAD * 0.75, q.y + RAD * 0.75, c);
     // 代號標籤
     ctx.font = '500 12px ' + mono; ctx.textAlign = 'left';
     ctx.lineWidth = 4; ctx.strokeStyle = c.bg; ctx.strokeText(code, q.x + RAD + 4, q.y - RAD + 2);
@@ -1176,8 +1145,6 @@ $('zoomFit').onclick = () => { resetView(); drawMap(); };
 /* ===== 檔名組合 ===== */
 const NF = { prefix: $('nPrefix'), num: $('nNum'), town: $('nTown'), area: $('nArea'), hour: $('nHour') };
 const NAME_KEY = 'gpxNameFields.v1';
-const HIST_FIELDS = { town: 'dlTown', area: 'dlArea' };
-let nameHist = { town: [], area: [] };
 const cleanPart = v => String(v).trim().replace(/[\\/:*?"<>|]/g, '');
 function hourVal() {
   const raw = NF.hour.value.trim();
@@ -1190,10 +1157,10 @@ function hourVal() {
 }
 function numVal() {
   const raw = NF.num.value.trim();
-  if (raw === '') { NF.num.removeAttribute('aria-invalid'); $('nNumHint').textContent = '2 位數字，例如 05'; return ''; }
+  if (raw === '') { NF.num.removeAttribute('aria-invalid'); $('nNumHint').textContent = '自動接續下載紀錄，可手動改'; return ''; }
   const ok = /^\d{1,2}$/.test(raw);
   NF.num.setAttribute('aria-invalid', ok ? 'false' : 'true');
-  $('nNumHint').textContent = ok ? '2 位數字，例如 05' : '請填 1～2 位數字，這格暫不列入檔名';
+  $('nNumHint').textContent = ok ? '自動接續下載紀錄，可手動改' : '請填 1～2 位數字，這格暫不列入檔名';
   return ok ? raw.padStart(2, '0') : '';
 }
 function fileName() {
@@ -1206,28 +1173,15 @@ function fileName() {
   return name || todayName();
 }
 function saveNameFields() {
-  try { localStorage.setItem(NAME_KEY, JSON.stringify({ v: { prefix: NF.prefix.value, num: NF.num.value, town: NF.town.value, area: NF.area.value, hour: NF.hour.value }, hist: nameHist })); } catch (e) {}
-}
-function renderDatalists() {
-  Object.entries(HIST_FIELDS).forEach(([k, id]) => {
-    const dl = $(id); dl.innerHTML = '';
-    nameHist[k].forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); });
-  });
-}
-function rememberNameParts() {
-  Object.keys(HIST_FIELDS).forEach(k => {
-    const v = NF[k].value.trim(); if (!v) return;
-    nameHist[k] = [v, ...nameHist[k].filter(x => x !== v)].slice(0, 20);
-  });
-  renderDatalists(); saveNameFields();
+  try { localStorage.setItem(NAME_KEY, JSON.stringify({ prefix: NF.prefix.value })); } catch (e) {}
 }
 function loadNameFields() {
+  // 只記住前綴；其他格子每次都是空的，編號依下載紀錄自動接續
   let d = null;
   try { d = JSON.parse(localStorage.getItem(NAME_KEY) || 'null'); } catch (e) {}
-  if (d && d.v) { Object.keys(NF).forEach(k => { NF[k].value = d.v[k] || ''; }); }
-  if (NF.prefix.value !== '臨時') NF.prefix.value = '';
-  if (d && d.hist) Object.keys(nameHist).forEach(k => { nameHist[k] = Array.isArray(d.hist[k]) ? d.hist[k] : []; });
-  renderDatalists();
+  const pre = d ? (d.prefix !== undefined ? d.prefix : (d.v && d.v.prefix)) : '';
+  NF.prefix.value = pre === '臨時' ? '臨時' : '';
+  NF.num.value = nextNum();
 }
 Object.values(NF).forEach(el => { el.addEventListener('input', () => { updateOutput(); saveNameFields(); }); el.addEventListener('change', () => { updateOutput(); saveNameFields(); }); });
 NF.num.addEventListener('blur', () => { const v = numVal(); if (v) { NF.num.value = v; saveNameFields(); updateOutput(); } });
@@ -1251,13 +1205,13 @@ function updateOutput() {
   els.gpxOut.value = steps.length ? currentGPX() : '';
 }
 function refresh(focus) {
-  renderRoute(focus); renderPool(); drawMap(); updateOutput(); save(); updateRepProgress();
+  renderRoute(focus); renderPool(); drawMap(); updateOutput(); save();
   els.undo.disabled = history.length === 0;
 }
 
 $('btnCopy').addEventListener('click', () => {
   if (!route.length) { toast('路線是空的，請先加入站點'); return; }
-  const text = currentGPX(); rememberNameParts();
+  const text = currentGPX();
   const fallback = () => { $('gpxDetails').open = true; els.gpxOut.focus(); els.gpxOut.select(); toast('無法自動複製，已選取全文，請按 Ctrl+C 或長按複製'); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => toast(`已複製 GPX（${route.length} 站、${route.length * 24} 點）`), fallback);
   else fallback();
@@ -1267,26 +1221,108 @@ let dlNS;
 if (window.claude && typeof window.claude.use === 'function') {
   window.claude.use('downloads').then(ns => { dlNS = ns; if (!ns) $('btnDownload').hidden = true; }).catch(() => { dlNS = null; $('btnDownload').hidden = true; });
 }
-$('btnDownload').addEventListener('click', async () => {
-  if (!route.length) { toast('路線是空的，請先加入站點'); return; }
-  const text = currentGPX();
-  const fname = fileName(); rememberNameParts();
+async function saveGpxFile(fname, text) {
   if (dlNS) {
-    try { await dlNS.save({ filename: fname + '.gpx', data: text }); toast('已下載 ' + fname + '.gpx'); }
+    try { await dlNS.save({ filename: fname + '.gpx', data: text }); toast('已下載 ' + fname + '.gpx'); return true; }
     catch (err) {
       if (err && err.code === 'rejected_extension') {
-        try { await dlNS.save({ filename: fname + '.gpx.txt', data: text }); toast('已存成 .txt，請把檔名最後的 .txt 刪掉'); }
-        catch (e2) { if (e2 && e2.code !== 'declined') toast('無法下載，請改用「複製 GPX」'); }
-      } else if (!(err && err.code === 'declined')) toast('無法下載，請改用「複製 GPX」');
+        try { await dlNS.save({ filename: fname + '.gpx.txt', data: text }); toast('已存成 .txt，請把檔名最後的 .txt 刪掉'); return true; }
+        catch (e2) { if (e2 && e2.code !== 'declined') toast('無法下載，請改用「複製 GPX」'); return false; }
+      }
+      if (!(err && err.code === 'declined')) toast('無法下載，請改用「複製 GPX」');
+      return false;
     }
-    return;
   }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([text], { type: 'application/gpx+xml' }));
   a.download = fname + '.gpx'; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   toast('已下載 ' + fname + '.gpx');
+  return true;
+}
+$('btnDownload').addEventListener('click', async () => {
+  if (!route.length) { toast('路線是空的，請先加入站點'); return; }
+  const fname = fileName(), text = currentGPX();
+  if (!(await saveGpxFile(fname, text))) return;
+  addDlRecord(fname);
+  NF.num.value = nextNum(); updateOutput();
+  announce(`已下載並記錄 ${fname}，編號自動改為 ${NF.num.value}`);
 });
+
+/* ===== 下載紀錄 ===== */
+const DL_KEY = 'gpxDownloadHistory.v1';
+let dlHist = [];
+try { dlHist = JSON.parse(localStorage.getItem(DL_KEY) || '[]') || []; } catch (e) { dlHist = []; }
+function saveDlHist() { try { localStorage.setItem(DL_KEY, JSON.stringify(dlHist)); } catch (e) { toast('紀錄空間已滿，請刪除部分下載紀錄'); } }
+function nextNum() {
+  const max = dlHist.reduce((m, r) => Math.max(m, parseInt(r.f && r.f.num, 10) || 0), 0);
+  return max >= 99 ? '' : String(max + 1).padStart(2, '0');
+}
+function addDlRecord(fname) {
+  dlHist.unshift({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    name: fname, at: Date.now(), speed: els.speed.value,
+    f: { prefix: NF.prefix.value, num: numVal(), town: NF.town.value.trim(), area: NF.area.value.trim(), hour: NF.hour.value.trim() },
+    pts: routePts().map(p => [+p.lat.toFixed(7), +p.lon.toFixed(7)])
+  });
+  if (dlHist.length > 200) dlHist.length = 200;
+  saveDlHist(); renderDlHist();
+}
+const fmtTime = t => { const d = new Date(t), z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}/${z(d.getMonth() + 1)}/${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`; };
+const recGpx = r => buildGPX(buildAllSteps(r.pts.map(([lat, lon]) => ({ lat, lon }))), r.name);
+function renderDlHist(focusSel) {
+  const ul = $('dlList'); ul.innerHTML = '';
+  $('dlCount').textContent = dlHist.length ? `共 ${dlHist.length} 筆` : '';
+  $('btnDlClear').disabled = !dlHist.length;
+  if (!dlHist.length) { const li = document.createElement('li'); li.className = 'empty'; li.textContent = '還沒有下載紀錄。按「下載 .gpx」後會自動記在這裡。'; ul.appendChild(li); return; }
+  dlHist.forEach(r => {
+    const li = document.createElement('li'); li.className = 'dlrec'; li.dataset.id = r.id;
+    const nm = document.createElement('div'); nm.className = 'dlname'; nm.textContent = r.name + '.gpx';
+    const meta = document.createElement('div'); meta.className = 'dlmeta'; meta.textContent = `${fmtTime(r.at)}・${r.pts.length} 站`;
+    const acts = document.createElement('div'); acts.className = 'dlacts';
+    acts.innerHTML = `<button class="btn sm load" type="button">載回編輯</button><button class="btn sm again" type="button">${ICON.dl}重新下載</button><button class="ibtn del" type="button">${ICON.del}</button>`;
+    acts.querySelector('.load').setAttribute('aria-label', `載回編輯 ${r.name}`);
+    acts.querySelector('.again').setAttribute('aria-label', `重新下載 ${r.name}`);
+    acts.querySelector('.del').setAttribute('aria-label', `刪除紀錄 ${r.name}`);
+    li.append(nm, meta, acts); ul.appendChild(li);
+  });
+  if (focusSel) (ul.querySelector(focusSel) || $('btnDownload')).focus();
+}
+$('dlList').addEventListener('click', async e => {
+  const li = e.target.closest('.dlrec'); if (!li) return;
+  const idx = dlHist.findIndex(r => r.id === li.dataset.id); if (idx < 0) return;
+  const r = dlHist[idx];
+  if (e.target.closest('.again')) { await saveGpxFile(r.name, recGpx(r)); }
+  else if (e.target.closest('.load')) {
+    pushHistory();
+    points = r.pts.map(([lat, lon], i) => ({ code: 'P' + (i + 1), lat, lon }));
+    route = points.map(p => p.code); pNext = points.length + 1;
+    NF.prefix.value = r.f.prefix === '臨時' ? '臨時' : ''; NF.num.value = r.f.num || '';
+    NF.town.value = r.f.town || ''; NF.area.value = r.f.area || ''; NF.hour.value = r.f.hour || '';
+    if (r.speed) els.speed.value = r.speed;
+    saveNameFields(); resetView(); refresh();
+    toast(`已載回 ${r.name}（${r.pts.length} 站），可按復原`); announce(`已載回 ${r.name}，共 ${r.pts.length} 站`);
+    $('routePanel').focus({ preventScroll: true }); $('routePanel').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  }
+  else if (e.target.closest('.del')) {
+    const nextId = (dlHist[idx + 1] || dlHist[idx - 1] || {}).id;
+    dlHist.splice(idx, 1); saveDlHist();
+    renderDlHist(nextId ? `[data-id="${nextId}"] .del` : null);
+    toast('已刪除 1 筆紀錄'); announce(`已刪除紀錄 ${r.name}`);
+  }
+});
+let dlClearT = 0;
+$('btnDlClear').onclick = function () {
+  if (!dlHist.length) return;
+  if (!dlClearT) {
+    this.textContent = '再按一次確定清除'; this.classList.add('primary');
+    dlClearT = setTimeout(() => { dlClearT = 0; this.textContent = '清除全部紀錄'; this.classList.remove('primary'); }, 4000);
+    return;
+  }
+  clearTimeout(dlClearT); dlClearT = 0; this.textContent = '清除全部紀錄'; this.classList.remove('primary');
+  dlHist = []; saveDlHist(); renderDlHist(); NF.num.value = nextNum(); updateOutput();
+  toast('已清除全部下載紀錄'); announce('已清除全部下載紀錄');
+};
 
 /* ===== GPX 匯入介面 ===== */
 function showImport(kind, title, body) {
@@ -1357,18 +1393,6 @@ $('btnTop').onclick = () => {
   $('pageTop').focus({ preventScroll: true });
 };
 
-$('repFilter').onchange = () => { renderRoute(); renderPool(); announce($('repFilter').checked ? '只顯示未檢查的點' : '顯示全部點'); };
-let repClearT = 0;
-$('btnRepClear').onclick = function () {
-  if (!Object.keys(repStatus).length) { toast('沒有回報狀態可清除'); return; }
-  if (!repClearT) {
-    this.textContent = '再按一次確定清除'; this.classList.add('primary');
-    repClearT = setTimeout(() => { repClearT = 0; this.textContent = '清除回報狀態'; this.classList.remove('primary'); }, 4000);
-    return;
-  }
-  clearTimeout(repClearT); repClearT = 0; this.textContent = '清除回報狀態'; this.classList.remove('primary');
-  repStatus = {}; saveRep(); renderRoute(); renderPool(); drawMap(); updateRepProgress(); toast('已清除全部回報狀態'); announce('已清除全部回報狀態');
-};
 
 $('bmLink').addEventListener('click', e => { e.preventDefault(); $('bmTip').textContent = '請用滑鼠把按鈕「拖曳」到書籤列，而不是點擊。'; });
 function copyFrom(text, okMsg, fallbackEl) {
@@ -1390,6 +1414,7 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(drawMap);
 
 /* ===== 啟動 ===== */
 loadNameFields();
+renderDlHist();
 if (!load()) {
   // 沿用舊版清單（依原順序編號並加入路線），沒有就載入範例
   let old = null;
