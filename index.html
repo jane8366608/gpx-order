@@ -128,6 +128,9 @@ kbd{font-family:var(--mono);border:1px solid var(--line);border-bottom-width:2px
 .scroller .btn.add{min-height:40px;padding:4px 10px}
 .scroller .acts{gap:2px}
 .scroller .empty{border:0}
+.share{border-top:1px solid var(--line);padding-top:12px;display:grid;gap:8px}
+.share .lbl{margin:0;font-weight:700}
+#shareOut{font-size:.85rem;min-height:0}
 .dllist{list-style:none;margin:0;padding:0;display:grid;gap:4px}
 .dlrec{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 6px 6px 12px}
 .dlname{font-weight:500;overflow-wrap:anywhere}
@@ -295,6 +298,16 @@ details textarea{border:0;border-top:1px solid var(--line);border-radius:0 0 8px
       <div class="row">
         <button class="btn primary" id="btnCopy" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h9"/></svg>複製 GPX</button>
         <button class="btn" id="btnDownload" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>下載 .gpx</button>
+      </div>
+      <div class="share">
+        <p class="lbl">分享給別人（LINE 也能用）</p>
+        <div class="row">
+          <button class="btn" id="btnShareCopy" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>複製分享連結</button>
+          <button class="btn" id="btnShareNative" type="button" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>分享到 App…</button>
+        </div>
+        <p class="note" id="shareNote">對方點開連結會看到同一條路線和檔名，按「下載 .gpx」就能拿到正確的 .gpx 檔。</p>
+        <label for="shareOut" class="sr-only">分享連結</label>
+        <textarea id="shareOut" readonly spellcheck="false" rows="3" hidden></textarea>
       </div>
       <details id="gpxDetails">
         <summary>查看 GPX 內容</summary>
@@ -1280,10 +1293,11 @@ function renderDlHist(focusSel) {
     const nm = document.createElement('div'); nm.className = 'dlname'; nm.textContent = r.name + '.gpx';
     const meta = document.createElement('div'); meta.className = 'dlmeta'; meta.textContent = `${fmtTime(r.at)}・${r.pts.length} 站`;
     const acts = document.createElement('div'); acts.className = 'dlacts';
-    acts.innerHTML = `<button class="btn sm load" type="button">載回編輯</button><button class="btn sm again" type="button">${ICON.dl}重新下載</button><button class="ibtn del" type="button">${ICON.del}</button>`;
+    acts.innerHTML = `<button class="btn sm load" type="button">載回編輯</button><button class="btn sm again" type="button">${ICON.dl}重新下載</button><button class="btn sm share1" type="button">分享</button><button class="ibtn del" type="button">${ICON.del}</button>`;
     acts.querySelector('.load').setAttribute('aria-label', `載回編輯 ${r.name}`);
     acts.querySelector('.again').setAttribute('aria-label', `重新下載 ${r.name}`);
     acts.querySelector('.del').setAttribute('aria-label', `刪除紀錄 ${r.name}`);
+    acts.querySelector('.share1').setAttribute('aria-label', `複製 ${r.name} 的分享連結`);
     li.append(nm, meta, acts); ul.appendChild(li);
   });
   if (focusSel) (ul.querySelector(focusSel) || $('btnDownload')).focus();
@@ -1293,6 +1307,7 @@ $('dlList').addEventListener('click', async e => {
   const idx = dlHist.findIndex(r => r.id === li.dataset.id); if (idx < 0) return;
   const r = dlHist[idx];
   if (e.target.closest('.again')) { await saveGpxFile(r.name, recGpx(r)); }
+  else if (e.target.closest('.share1')) { shareOut(shareUrl(r.pts.map(([lat, lon]) => ({ lat, lon })), r.f, r.speed), 'copy'); }
   else if (e.target.closest('.load')) {
     pushHistory();
     points = r.pts.map(([lat, lon], i) => ({ code: 'P' + (i + 1), lat, lon }));
@@ -1323,6 +1338,82 @@ $('btnDlClear').onclick = function () {
   dlHist = []; saveDlHist(); renderDlHist(); NF.num.value = nextNum(); updateOutput();
   toast('已清除全部下載紀錄'); announce('已清除全部下載紀錄');
 };
+
+/* ===== 分享連結 ===== */
+// 座標 ×1e7 取整數，第一點存絕對值、之後存差值，以 36 進位用「.」串接
+function encodePts(pts) {
+  let pa = 0, po = 0; const out = [];
+  pts.forEach(p => {
+    const a = Math.round(p.lat * 1e7), o = Math.round(p.lon * 1e7);
+    out.push((a - pa).toString(36), (o - po).toString(36)); pa = a; po = o;
+  });
+  return out.join('.');
+}
+function decodePts(str) {
+  const v = String(str).split('.').map(x => parseInt(x, 36));
+  if (!v.length || v.length % 2 || v.some(n => !Number.isFinite(n))) return null;
+  const pts = []; let a = 0, o = 0;
+  for (let i = 0; i < v.length; i += 2) {
+    a += v[i]; o += v[i + 1];
+    const lat = a / 1e7, lon = o / 1e7;
+    if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+    pts.push({ lat, lon });
+  }
+  return pts.length > 500 ? null : pts;
+}
+const canShare = () => /^https?:$/.test(location.protocol) && !/claude/i.test(location.hostname);
+function shareUrl(pts, f, speed) {
+  const q = new URLSearchParams();
+  q.set('v', '1');
+  if (f.prefix) q.set('pre', f.prefix);
+  if (f.num) q.set('num', f.num);
+  if (f.town) q.set('town', f.town);
+  if (f.area) q.set('area', f.area);
+  if (f.hour !== '' && f.hour !== undefined) q.set('hour', f.hour);
+  if (speed && String(speed) !== '19') q.set('s', speed);
+  q.set('p', encodePts(pts));
+  return location.origin + location.pathname + '#' + q.toString();
+}
+function curFields() { return { prefix: NF.prefix.value, num: numVal(), town: NF.town.value.trim(), area: NF.area.value.trim(), hour: NF.hour.value.trim() }; }
+function shareOut(url, mode) {
+  if (!canShare()) { toast('這個頁面不能產生分享連結，請到 GitHub Pages 網址使用'); return; }
+  const box = $('shareOut');
+  const fb = () => { box.hidden = false; box.value = url; box.focus(); box.select(); toast('無法自動複製，已選取連結，請按 Ctrl+C 或長按複製'); };
+  if (mode === 'native' && navigator.share) {
+    navigator.share({ title: 'GPX 路線', text: '點開連結即可下載 GPX 路線：', url }).catch(err => { if (!(err && err.name === 'AbortError')) fb(); });
+    return;
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(() => { toast('已複製分享連結，可以貼到 LINE'); announce('已複製分享連結'); }, fb);
+  else fb();
+}
+$('btnShareCopy').onclick = () => { if (!route.length) { toast('路線是空的，請先加入站點'); return; } shareOut(shareUrl(routePts(), curFields(), els.speed.value), 'copy'); };
+$('btnShareNative').onclick = () => { if (!route.length) { toast('路線是空的，請先加入站點'); return; } shareOut(shareUrl(routePts(), curFields(), els.speed.value), 'native'); };
+if (navigator.share && canShare()) $('btnShareNative').hidden = false;
+if (!canShare()) $('shareNote').textContent = '分享功能要在 GitHub Pages 網址上才能使用（這個頁面產生的連結別人打不開）。';
+function loadShared() {
+  if (!location.hash || location.hash.length < 4) return;
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (!q.has('p')) return;
+  const pts = decodePts(q.get('p'));
+  try { window.history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+  if (!pts) { showImport('err', '分享連結的內容不完整', '可能是連結被截斷了，請對方重新複製一次。'); return; }
+  pushHistory();
+  points = pts.map((p, i) => ({ code: 'P' + (i + 1), lat: p.lat, lon: p.lon }));
+  route = points.map(p => p.code); pNext = points.length + 1;
+  NF.prefix.value = q.get('pre') === '臨時' ? '臨時' : '';
+  NF.num.value = /^\d{1,2}$/.test(q.get('num') || '') ? q.get('num').padStart(2, '0') : '';
+  NF.town.value = q.get('town') || ''; NF.area.value = q.get('area') || ''; NF.hour.value = q.get('hour') || '';
+  if (q.get('s')) els.speed.value = q.get('s');
+  els.input.value = '';
+  saveNameFields(); resetView(); refresh();
+  const nm = fileName();
+  showImport('ok', `已開啟分享的路線：${nm}（${pts.length} 站）`, '往下捲到「輸出 GPX」按「下載 .gpx」即可取得檔案；也可以先調整順序。');
+  const box = $('importMsg');
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'btn primary'; b.style.marginTop = '8px'; b.textContent = '前往下載';
+  b.onclick = () => { $('btnDownload').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' }); $('btnDownload').focus({ preventScroll: true }); };
+  box.appendChild(document.createElement('br')); box.appendChild(b);
+  toast(`已開啟分享的路線（${pts.length} 站）`); announce(`已開啟分享的路線 ${nm}，共 ${pts.length} 站`);
+}
 
 /* ===== GPX 匯入介面 ===== */
 function showImport(kind, title, body) {
@@ -1430,6 +1521,8 @@ if (!load()) {
 els.undo.disabled = true;
 new ResizeObserver(sizeCanvas).observe(els.canvas);
 refresh();
+loadShared();
+addEventListener('hashchange', loadShared);
 </script>
 
 </body>
