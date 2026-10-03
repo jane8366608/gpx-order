@@ -303,9 +303,11 @@ details textarea{border:0;border-top:1px solid var(--line);border-radius:0 0 8px
         <p class="lbl">分享給別人（LINE 也能用）</p>
         <div class="row">
           <button class="btn" id="btnShareCopy" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>複製分享連結</button>
+          <button class="btn primary" id="btnShortCopy" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 12h10M10 6l6 6-6 6M20 5v14"/></svg>複製短網址</button>
           <button class="btn" id="btnShareNative" type="button" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>分享到 App…</button>
         </div>
         <p class="note" id="shareNote">對方點開連結會看到同一條路線和檔名，按「下載 .gpx」就能拿到正確的 .gpx 檔。</p>
+        <p class="note" id="shortNote">短網址由免費服務 is.gd 產生：路線座標會存在該服務，拿到短網址的人都能開啟；服務停止時短網址會失效。</p>
         <label for="shareOut" class="sr-only">分享連結</label>
         <textarea id="shareOut" readonly spellcheck="false" rows="3" hidden></textarea>
       </div>
@@ -1297,7 +1299,7 @@ function renderDlHist(focusSel) {
     acts.querySelector('.load').setAttribute('aria-label', `載回編輯 ${r.name}`);
     acts.querySelector('.again').setAttribute('aria-label', `重新下載 ${r.name}`);
     acts.querySelector('.del').setAttribute('aria-label', `刪除紀錄 ${r.name}`);
-    acts.querySelector('.share1').setAttribute('aria-label', `複製 ${r.name} 的分享連結`);
+    acts.querySelector('.share1').setAttribute('aria-label', `複製 ${r.name} 的短網址`);
     li.append(nm, meta, acts); ul.appendChild(li);
   });
   if (focusSel) (ul.querySelector(focusSel) || $('btnDownload')).focus();
@@ -1307,7 +1309,7 @@ $('dlList').addEventListener('click', async e => {
   const idx = dlHist.findIndex(r => r.id === li.dataset.id); if (idx < 0) return;
   const r = dlHist[idx];
   if (e.target.closest('.again')) { await saveGpxFile(r.name, recGpx(r)); }
-  else if (e.target.closest('.share1')) { shareOut(shareUrl(r.pts.map(([lat, lon]) => ({ lat, lon })), r.f, r.speed), 'copy'); }
+  else if (e.target.closest('.share1')) { shareShort(shareUrl(r.pts.map(([lat, lon]) => ({ lat, lon })), r.f, r.speed), 'copy'); }
   else if (e.target.closest('.load')) {
     pushHistory();
     points = r.pts.map(([lat, lon], i) => ({ code: 'P' + (i + 1), lat, lon }));
@@ -1374,8 +1376,36 @@ function shareUrl(pts, f, speed) {
   q.set('p', encodePts(pts));
   return location.origin + location.pathname + '#' + q.toString();
 }
+// 短網址：is.gd（失敗改用 v.gd），JSONP 呼叫
+const shortCache = {};
+function shortenVia(host, url) {
+  return new Promise((resolve, reject) => {
+    const cb = '__gd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const sc = document.createElement('script');
+    const done = () => { delete window[cb]; sc.remove(); clearTimeout(t); };
+    const t = setTimeout(() => { done(); reject(new Error('timeout')); }, 8000);
+    window[cb] = d => { done(); if (d && d.shorturl) resolve(d.shorturl); else reject(new Error((d && d.errormessage) || 'error')); };
+    sc.onerror = () => { done(); reject(new Error('network')); };
+    sc.src = `https://${host}/create.php?format=json&logstats=0&callback=${cb}&url=${encodeURIComponent(url)}`;
+    document.head.appendChild(sc);
+  });
+}
+async function shortUrl(url) {
+  if (shortCache[url]) return shortCache[url];
+  let s;
+  try { s = await shortenVia('is.gd', url); } catch (e1) { s = await shortenVia('v.gd', url); }
+  shortCache[url] = s; return s;
+}
+async function shareShort(url, mode) {
+  if (!canShare()) { toast('這個頁面不能產生分享連結，請到 GitHub Pages 網址使用'); return; }
+  toast('正在產生短網址…'); announce('正在產生短網址');
+  let s;
+  try { s = await shortUrl(url); }
+  catch (e) { toast('短網址服務連不上，已改複製完整連結'); shareOut(url, mode); return; }
+  shareOut(s, mode, true);
+}
 function curFields() { return { prefix: NF.prefix.value, num: numVal(), town: NF.town.value.trim(), area: NF.area.value.trim(), hour: NF.hour.value.trim() }; }
-function shareOut(url, mode) {
+function shareOut(url, mode, isShort) {
   if (!canShare()) { toast('這個頁面不能產生分享連結，請到 GitHub Pages 網址使用'); return; }
   const box = $('shareOut');
   const fb = () => { box.hidden = false; box.value = url; box.focus(); box.select(); toast('無法自動複製，已選取連結，請按 Ctrl+C 或長按複製'); };
@@ -1383,12 +1413,14 @@ function shareOut(url, mode) {
     navigator.share({ title: 'GPX 路線', text: '點開連結即可下載 GPX 路線：', url }).catch(err => { if (!(err && err.name === 'AbortError')) fb(); });
     return;
   }
-  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(() => { toast('已複製分享連結，可以貼到 LINE'); announce('已複製分享連結'); }, fb);
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(() => { const m = isShort ? `已複製短網址 ${url}` : '已複製分享連結，可以貼到 LINE'; toast(m); announce(m); }, fb);
   else fb();
 }
 $('btnShareCopy').onclick = () => { if (!route.length) { toast('路線是空的，請先加入站點'); return; } shareOut(shareUrl(routePts(), curFields(), els.speed.value), 'copy'); };
-$('btnShareNative').onclick = () => { if (!route.length) { toast('路線是空的，請先加入站點'); return; } shareOut(shareUrl(routePts(), curFields(), els.speed.value), 'native'); };
+$('btnShortCopy').onclick = () => { if (!route.length) { toast('路線是空的，請先加入站點'); return; } shareShort(shareUrl(routePts(), curFields(), els.speed.value), 'copy'); };
+$('btnShareNative').onclick = () => { if (!route.length) { toast('路線是空的，請先加入站點'); return; } shareShort(shareUrl(routePts(), curFields(), els.speed.value), 'native'); };
 if (navigator.share && canShare()) $('btnShareNative').hidden = false;
+if (!canShare()) { $('btnShortCopy').disabled = true; $('shortNote').hidden = true; }
 if (!canShare()) $('shareNote').textContent = '分享功能要在 GitHub Pages 網址上才能使用（這個頁面產生的連結別人打不開）。';
 function loadShared() {
   if (!location.hash || location.hash.length < 4) return;
