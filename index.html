@@ -193,6 +193,23 @@ details summary{cursor:pointer;padding:10px 12px;min-height:44px;font-weight:500
 details textarea{border:0;border-top:1px solid var(--line);border-radius:0 0 8px 8px;min-height:14em;font-size:.82rem;background:var(--surface)}
 .note{font-size:.85rem;color:var(--muted);margin:0}
 
+.mode-btn{margin-left:auto;align-self:center;min-height:40px;padding:4px 12px;font-size:.9rem}
+#mobileView{display:none}
+body.m-mode #mobileView{display:grid;gap:16px}
+body.m-mode main.layout, body.m-mode .to-top-wrap, body.m-mode header.top p, body.m-mode .skip{display:none}
+body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:center}
+.mstep{display:grid;gap:10px}
+.mstep h2{display:flex;align-items:center;gap:10px}
+.mstep h2 .no{display:inline-grid;place-items:center;width:1.7em;height:1.7em;border-radius:50%;background:var(--accent);color:var(--on-accent);font-size:.9rem;flex:none}
+#mCoords{min-height:7em;font-family:var(--mono);font-size:.9rem}
+.mstat{font-weight:500;margin:0}
+.mstat.warn{color:var(--r1)}
+#mDownload{width:100%;min-height:56px;font-size:1.1rem;justify-content:center}
+#mNameSlot .namer{border:0;padding:0}
+#mNameSlot .nf{grid-template-columns:1fr 1fr;gap:10px}
+#mNameSlot .nf small{display:none}
+#mNameSlot .nf [aria-invalid="true"] ~ small, #mNameSlot .nf div:has(> [aria-invalid="true"]) small{display:block}
+#mNameSlot .namer legend{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .to-top-wrap{display:flex;justify-content:center;padding-block:24px 8px}
 #pageTop:focus{outline:none}
 .toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 20px);transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:999px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .2s;max-width:calc(100% - 32px);text-align:center;z-index:40}
@@ -208,7 +225,32 @@ details textarea{border:0;border-top:1px solid var(--line);border-radius:0 0 8px
   <header class="top">
     <h1 id="pageTop" tabindex="-1">GPX 站點排序</h1>
     <p>點位有固定代號 P1、P2…；依你點選加入的先後排成路線，每站跑完 R1 → R2 再換下一站。</p>
+    <button class="btn mode-btn" id="btnMode" type="button" aria-describedby="modeHint">切換到電腦版</button>
+    <span id="modeHint" class="sr-only">切換手機精簡版與電腦完整版</span>
   </header>
+
+  <!-- 手機精簡版 -->
+  <div id="mobileView">
+    <section class="panel mstep" aria-labelledby="mT1">
+      <h2 id="mT1"><span class="no" aria-hidden="true">1</span>貼上座標</h2>
+      <label for="mCoords" class="sr-only">座標，一行一個「緯度, 經度」，依貼上順序成為各站</label>
+      <textarea id="mCoords" spellcheck="false" placeholder="23.949163, 120.576512" aria-describedby="mStat"></textarea>
+      <div class="row">
+        <button class="btn primary" id="mPaste" type="button">貼上剪貼簿</button>
+        <button class="btn" id="mClear" type="button">清除</button>
+      </div>
+      <p class="mstat" id="mStat" role="status">尚未貼上座標</p>
+    </section>
+    <section class="panel mstep" aria-labelledby="mT2">
+      <h2 id="mT2"><span class="no" aria-hidden="true">2</span>檔名</h2>
+      <div id="mNameSlot"></div>
+    </section>
+    <section class="panel mstep" aria-labelledby="mT3">
+      <h2 id="mT3"><span class="no" aria-hidden="true">3</span>下載</h2>
+      <button class="btn primary" id="mDownload" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>下載 .gpx</button>
+      <p class="note">站點依貼上順序排列；要調整順序請按右上角「切換到電腦版」。</p>
+    </section>
+  </div>
 
   <main class="layout">
     <!-- 1 輸入 -->
@@ -1444,8 +1486,62 @@ function loadShared() {
   const b = document.createElement('button'); b.type = 'button'; b.className = 'btn primary'; b.style.marginTop = '8px'; b.textContent = '前往下載';
   b.onclick = () => { $('btnDownload').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' }); $('btnDownload').focus({ preventScroll: true }); };
   box.appendChild(document.createElement('br')); box.appendChild(b);
+  if (isM()) syncMobile();
   toast(`已開啟分享的路線（${pts.length} 站）`); announce(`已開啟分享的路線 ${nm}，共 ${pts.length} 站`);
 }
+
+/* ===== 手機精簡版 ===== */
+const MODE_KEY = 'gpxViewMode.v1';
+const mq = matchMedia('(max-width: 760px)');
+const namerEl = document.querySelector('fieldset.namer');
+const namerHome = { parent: namerEl.parentNode, next: namerEl.nextSibling };
+const isM = () => document.body.classList.contains('m-mode');
+function prefMode() { try { return localStorage.getItem(MODE_KEY); } catch (e) { return null; } }
+function setMode(m) {
+  document.body.classList.toggle('m-mode', m);
+  if (m) $('mNameSlot').appendChild(namerEl);
+  else namerHome.parent.insertBefore(namerEl, namerHome.next);
+  $('btnMode').textContent = m ? '切換到電腦版' : '切換到手機版';
+  if (m) syncMobile(); else requestAnimationFrame(() => { sizeCanvas(); drawMap(); });
+}
+function syncMobile() {
+  $('mCoords').value = routePts().map(p => `${p.lat.toFixed(7)}, ${p.lon.toFixed(7)}`).join('\n');
+  mStatus();
+}
+function mStatus(dup, bad) {
+  const el = $('mStat');
+  if (!route.length) { el.textContent = bad ? `看不懂這些座標（${bad} 行），請用「緯度, 經度」一行一個` : '尚未貼上座標'; el.classList.toggle('warn', !!bad); return; }
+  let t = `已讀到 ${route.length} 站`;
+  if (dup) t += `，略過重複 ${dup} 個`;
+  if (bad) t += `，${bad} 行無法辨識`;
+  el.textContent = t; el.classList.toggle('warn', !!bad);
+}
+function applyMobileCoords() {
+  const { pts, bad } = parseCoords($('mCoords').value);
+  const uniq = []; let dup = 0;
+  pts.forEach(p => { if (uniq.some(u => same(u, p))) dup++; else uniq.push(p); });
+  points = uniq.map((p, i) => ({ code: 'P' + (i + 1), lat: p.lat, lon: p.lon }));
+  route = points.map(p => p.code); pNext = points.length + 1;
+  resetView(); refresh(); mStatus(dup, bad);
+}
+let mT = 0;
+$('mCoords').addEventListener('input', () => { clearTimeout(mT); mT = setTimeout(applyMobileCoords, 250); });
+$('mPaste').onclick = async () => {
+  try {
+    const t = await navigator.clipboard.readText();
+    if (!t.trim()) { toast('剪貼簿是空的'); return; }
+    $('mCoords').value = t; applyMobileCoords(); toast(`已貼上，共 ${route.length} 站`);
+  } catch (e) { $('mCoords').focus(); toast('無法讀取剪貼簿，請長按輸入框選「貼上」'); }
+};
+$('mClear').onclick = () => { $('mCoords').value = ''; applyMobileCoords(); $('mCoords').focus(); };
+$('mDownload').onclick = () => $('btnDownload').click();
+$('btnMode').onclick = () => {
+  const m = !isM();
+  try { localStorage.setItem(MODE_KEY, m ? 'm' : 'd'); } catch (e) {}
+  setMode(m); announce(m ? '已切換到手機版' : '已切換到電腦版');
+  window.scrollTo(0, 0);
+};
+mq.addEventListener('change', e => { if (!prefMode()) setMode(e.matches); });
 
 /* ===== GPX 匯入介面 ===== */
 function showImport(kind, title, body) {
@@ -1554,6 +1650,7 @@ els.undo.disabled = true;
 new ResizeObserver(sizeCanvas).observe(els.canvas);
 refresh();
 loadShared();
+setMode(prefMode() ? prefMode() === 'm' : mq.matches);
 addEventListener('hashchange', loadShared);
 </script>
 
