@@ -131,6 +131,20 @@ kbd{font-family:var(--mono);border:1px solid var(--line);border-bottom-width:2px
 .share{border-top:1px solid var(--line);padding-top:12px;display:grid;gap:8px}
 .share .lbl{margin:0;font-weight:700}
 #shareOut{font-size:.85rem;min-height:0}
+.pmode{border:0;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:8px;min-width:0}
+.pmode legend{font-weight:700;padding:0;margin-bottom:6px}
+.pmode label{position:relative;display:block;cursor:pointer}
+.pmode input{position:absolute;opacity:0;width:1px;height:1px}
+.pmode span{display:grid;gap:2px;min-height:56px;align-content:center;padding:8px 12px;border:2px solid var(--line);border-radius:10px;background:var(--bg)}
+.pmode small{color:var(--muted);font-size:.8rem}
+.pmode input:checked + span{border-color:var(--accent);background:var(--accent-soft)}
+.pmode input:focus-visible + span{outline:3px solid var(--focus);outline-offset:2px}
+.plant-only,.smart-only{display:none}
+body.plant .plant-only, body.smart .smart-only{display:block}
+body.plant .pick-only, body.smart .pick-only{display:none}
+.pmode{grid-template-columns:repeat(3,1fr)}
+.pmode .smartinfo{grid-column:1 / -1;margin:2px 0 0}
+.dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:middle}
 .dllist{list-style:none;margin:0;padding:0;display:grid;gap:4px}
 .dlrec{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 6px 6px 12px}
 .dlname{font-weight:500;overflow-wrap:anywhere}
@@ -206,6 +220,7 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
 .mstat.warn{color:var(--r1)}
 #mDownload{width:100%;min-height:56px;font-size:1.1rem;justify-content:center}
 #mNameSlot .namer{border:0;padding:0}
+#mNameSlot{display:grid;gap:14px}
 #mNameSlot .nf{grid-template-columns:1fr 1fr;gap:10px}
 #mNameSlot .nf small{display:none}
 #mNameSlot .nf [aria-invalid="true"] ~ small, #mNameSlot .nf div:has(> [aria-invalid="true"]) small{display:block}
@@ -242,13 +257,13 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
       <p class="mstat" id="mStat" role="status">尚未貼上座標</p>
     </section>
     <section class="panel mstep" aria-labelledby="mT2">
-      <h2 id="mT2"><span class="no" aria-hidden="true">2</span>檔名</h2>
+      <h2 id="mT2"><span class="no" aria-hidden="true">2</span>模式與檔名</h2>
       <div id="mNameSlot"></div>
     </section>
     <section class="panel mstep" aria-labelledby="mT3">
       <h2 id="mT3"><span class="no" aria-hidden="true">3</span>下載</h2>
       <button class="btn primary" id="mDownload" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>下載 .gpx</button>
-      <p class="note">站點依貼上順序排列；要調整順序請按右上角「切換到電腦版」。</p>
+      <p class="note"><span class="pick-only">站點依貼上順序排列；要調整順序請按右上角「切換到電腦版」。</span><span class="plant-only">種花模式會自動排成最短路線。</span><span class="smart-only">智慧採果會自動還原偏移座標並排成最短路線。</span></p>
     </section>
   </div>
 
@@ -283,9 +298,12 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
         <span><i class="mk pool" aria-hidden="true">P</i>待選點</span>
         <span><i class="mk route" aria-hidden="true">1</i>路線（數字為順序）</span>
         <span><i class="sw order" aria-hidden="true"></i>行走方向</span>
-        <span><i class="sw r1" aria-hidden="true"></i>R1 30 m</span>
-        <span><i class="sw r2" aria-hidden="true"></i>R2 15 m</span>
-        <label class="check"><input type="checkbox" id="showDetail" checked> 顯示 R1／R2 路徑</label>
+        <span class="pick-only"><i class="sw r1" aria-hidden="true"></i>R1 30 m</span>
+        <span class="pick-only"><i class="sw r2" aria-hidden="true"></i>R2 15 m</span>
+        <span class="plant-only"><i class="sw r1" aria-hidden="true"></i>繞圈 30 m</span>
+        <span class="smart-only"><i class="dot" style="background:var(--ok)" aria-hidden="true"></i>還原的花（直接經過）</span>
+        <span class="smart-only"><i class="sw r1" aria-hidden="true"></i>還原不到：繞 30 m</span>
+        <label class="check"><input type="checkbox" id="showDetail" checked> 顯示細部路徑</label>
       </div>
       <p class="note">拖曳平移、滾輪或雙指縮放。滑過或聚焦清單中的點，預覽會標出位置。</p>
     </section>
@@ -293,6 +311,8 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
     <!-- 路線 -->
     <section class="panel" id="routePanel" aria-labelledby="routeTitle" tabindex="-1">
       <h2 id="routeTitle">路線 <span class="sub" id="routeCount"></span></h2>
+      <p class="imsg ok smart-only">智慧採果：自動從偏移座標還原花的位置並排最短路線，清單順序不影響；預覽圖的數字是實際行走順序。</p>
+      <p class="imsg ok plant-only" id="plantHint">種花模式：下載時自動排成最短路線，清單順序不影響；預覽圖的數字是實際行走順序。</p>
       <p id="dragHelp" class="hint">按住左側握把上下拖曳調整順序（拖到清單上下緣會自動捲動）；鍵盤可聚焦握把後按 ↑ ↓ 移動。</p>
       <div class="scroller" id="routeScroll"><ol class="stops" id="routeList" aria-describedby="dragHelp"></ol></div>
       <div class="row">
@@ -322,10 +342,17 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
         <div><dt>總距離</dt><dd><span id="stKm">0.00</span><small>km</small></dd></div>
         <div><dt>預估時間</dt><dd><span id="stMin">0</span><small>分</small></dd></div>
       </dl>
+      <fieldset class="pmode" id="pmodeBox">
+        <legend>路徑模式</legend>
+        <label><input type="radio" name="pmode" value="smart" checked><span><b>智慧採果</b><small>還原偏移・自動最短</small></span></label>
+        <label><input type="radio" name="pmode" value="pick"><span><b>雙圈採果</b><small>每站 24 點</small></span></label>
+        <label><input type="radio" name="pmode" value="plant"><span><b>種花</b><small>繞圈・每站 9 點</small></span></label>
+        <p class="imsg ok smart-only smartinfo" id="smartInfo" role="status"></p>
+      </fieldset>
       <fieldset class="namer">
         <legend>軌跡名稱</legend>
         <div class="nf">
-          <div><label for="nPrefix">前綴</label><select id="nPrefix" aria-describedby="nPrefixHint"><option value="">不加</option><option value="臨時">臨時</option></select><small id="nPrefixHint">選「臨時」會加上 (臨時)</small></div>
+          <div><label for="nPrefix">前綴</label><select id="nPrefix" aria-describedby="nPrefixHint"><option value="採果">採果</option><option value="種花">種花</option><option value="">不加</option></select><small id="nPrefixHint">切換路徑模式時會自動帶入</small></div>
           <div><label for="nNum">編號</label><input type="text" id="nNum" inputmode="numeric" maxlength="2" autocomplete="off" aria-describedby="nNumHint"><small id="nNumHint">自動接續下載紀錄，可手動改</small></div>
           <div><label for="nTown">縣市鄉鎮名</label><input type="text" id="nTown" autocomplete="off"></div>
           <div><label for="nArea">區域指標名</label><input type="text" id="nArea" autocomplete="off"></div>
@@ -358,7 +385,9 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
         <label for="gpxOut" class="sr-only">GPX 內容</label>
         <textarea id="gpxOut" readonly spellcheck="false"></textarea>
       </details>
-      <p class="note">每站 24 點：R1 15 點＋R2 9 點。R1 第 13 點與 R2 第 1 點同座標，依原工具保留。</p>
+      <p class="note pick-only">每站 24 點：R1 15 點＋R2 9 點。R1 第 13 點與 R2 第 1 點同座標，依原工具保留。</p>
+      <p class="note smart-only">還原得到的花直接從上面經過（0 m）；還原不到的點繞半徑 30 m 八角形一圈（離花約 26～28 m）；偵測不到偏移時直接經過每個座標。</p>
+      <p class="note plant-only">每站 9 點：半徑 30 m 八角形順時針繞一圈；從上一站穿過中心後進入，自動排最短路線。</p>
     </section>
 
     <!-- 下載紀錄 -->
@@ -649,6 +678,158 @@ function buildAllSteps(list) {
   list.forEach((c, i) => all.push(...buildStationSteps(c, i)));
   return all;
 }
+/* ===== 種花：繞圈版（30 m 八角形，自動最短路線） ===== */
+const PLANT_R = 30, PLANT_M = 111320;
+const mXY = (a, b) => { const cl = Math.cos(a.lat * Math.PI / 180); return { x: (b.lon - a.lon) * PLANT_M * cl, y: (b.lat - a.lat) * PLANT_M }; };
+const mDist = (a, b) => { const v = mXY(a, b); return Math.hypot(v.x, v.y); };
+function buildPlantSteps(list) {
+  const out = [];
+  let prev = null;
+  list.forEach((c, i) => {
+    // 進入方向：從上一站穿過中心，在對側開始繞；第一站朝向下一站
+    let v = prev ? mXY(prev, c) : (list[i + 1] ? mXY(c, list[i + 1]) : { x: 0, y: 1 });
+    let b0 = Math.atan2(v.x, v.y);
+    if (!isFinite(b0) || (v.x === 0 && v.y === 0)) b0 = 0;
+    const cl = Math.cos(c.lat * Math.PI / 180);
+    const ring = [];
+    for (let k = 0; k < 8; k++) {
+      const b = b0 + k * Math.PI / 4;
+      ring.push({ lat: c.lat + PLANT_R * Math.cos(b) / PLANT_M, lon: c.lon + PLANT_R * Math.sin(b) / (PLANT_M * cl), ring: 1 });
+    }
+    out.push(...ring, ring[0]);
+    prev = ring[0];
+  });
+  return out;
+}
+// 最短路線（開放路徑）：每個起點做最近鄰，再以 2-opt 改善，取最短
+function shortestOrder(list) {
+  const n = list.length;
+  if (n < 3) return list.slice();
+  const D = list.map(a => list.map(b => mDist(a, b)));
+  const len = t => { let s = 0; for (let i = 1; i < t.length; i++) s += D[t[i - 1]][t[i]]; return s; };
+  let best = null, bestL = Infinity;
+  for (let st = 0; st < n; st++) {
+    const used = new Array(n).fill(false), t = [st]; used[st] = true;
+    for (let k = 1; k < n; k++) {
+      const a = t[t.length - 1]; let bj = -1, bd = Infinity;
+      for (let j = 0; j < n; j++) if (!used[j] && D[a][j] < bd) { bd = D[a][j]; bj = j; }
+      t.push(bj); used[bj] = true;
+    }
+    let improved = true, guard = 0;
+    while (improved && guard++ < 50) {
+      improved = false;
+      for (let i = 0; i < n - 1; i++) for (let j = i + 1; j < n; j++) {
+        const a = i ? D[t[i - 1]][t[i]] : 0, b = j < n - 1 ? D[t[j]][t[j + 1]] : 0;
+        const c2 = i ? D[t[i - 1]][t[j]] : 0, d2 = j < n - 1 ? D[t[i]][t[j + 1]] : 0;
+        if (c2 + d2 < a + b - 1e-6) { t.splice(i, j - i + 1, ...t.slice(i, j + 1).reverse()); improved = true; }
+      }
+    }
+    const L = len(t); if (L < bestL) { bestL = L; best = t; }
+  }
+  return best.map(i => list[i]);
+}
+/* ===== 智慧採果：從暖風「大幅偏移」座標還原花的位置 =====
+   偏移點都在離花固定距離（例 56 m）、方位為 15° 整數倍的位置。
+   3 個以上偏移點等距指向同一點且方位都在 15° 格上 → 判定為花；
+   2 個點時用 15° 格篩掉另一個交點，只剩一個才算；其餘點繞 30 m 圈。 */
+const SMART_LOOP_R = 30, GRID_DEG = 15;
+const smartCache = new Map();
+function smartPlan(list) {
+  const key = list.map(p => p.lat.toFixed(7) + ',' + p.lon.toFixed(7)).join(';');
+  if (smartCache.has(key)) return smartCache.get(key);
+  const n = list.length;
+  const ref = list[0] || { lat: 0, lon: 0 };
+  const cl = Math.cos(ref.lat * Math.PI / 180);
+  const P = list.map(p => ({ x: (p.lon - ref.lon) * PLANT_M * cl, y: (p.lat - ref.lat) * PLANT_M }));
+  const toLL = q => ({ lat: ref.lat + q.y / PLANT_M, lon: ref.lon + q.x / (PLANT_M * cl) });
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const onGrid = (c, q) => { const b = (Math.atan2(q.x - c.x, q.y - c.y) * 180 / Math.PI + 360) % GRID_DEG; return Math.min(b, GRID_DEG - b) < 0.5; };
+  const support = (c, r) => { const s = []; for (let k = 0; k < n; k++) if (Math.abs(dist(c, P[k]) - r) < 0.6 && onGrid(c, P[k])) s.push(k); return s; };
+  // 1. 三點外心
+  const groups = [];
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    if (dist(P[i], P[j]) > 240) continue;
+    for (let k = j + 1; k < n; k++) {
+      if (dist(P[i], P[k]) > 240 || dist(P[j], P[k]) > 240) continue;
+      const a = P[i], b = P[j], c = P[k];
+      const d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
+      if (Math.abs(d) < 1e-6) continue;
+      const a2 = a.x * a.x + a.y * a.y, b2 = b.x * b.x + b.y * b.y, c2 = c.x * c.x + c.y * c.y;
+      const cc = { x: (a2 * (b.y - c.y) + b2 * (c.y - a.y) + c2 * (a.y - b.y)) / d, y: (a2 * (c.x - b.x) + b2 * (a.x - c.x) + c2 * (b.x - a.x)) / d };
+      const r = dist(cc, a);
+      if (r < 20 || r > 120) continue;
+      if (groups.some(g => dist(g.c, cc) < 1)) continue;
+      const sup = support(cc, r);
+      if (sup.length >= 3) groups.push({ c: cc, r, sup });
+    }
+  }
+  // 偏移距離：取最多組支持的半徑
+  let D = 0;
+  if (groups.length) {
+    const cnt = {}; groups.forEach(g => { const k = Math.round(g.r); cnt[k] = (cnt[k] || 0) + g.sup.length; });
+    D = +Object.entries(cnt).sort((a, b) => b[1] - a[1])[0][0];
+  }
+  const flowers = groups.filter(g => Math.abs(g.r - D) < 1.5);
+  const offsetMode = flowers.length >= 1 && (flowers.length >= 2 || flowers[0].sup.length >= 4);
+  const out = { offset: false, D: 0, targets: [], recovered: 0, pairs: 0, loops: 0 };
+  if (!offsetMode) {
+    out.targets = list.map(p => ({ type: 'pass', lat: p.lat, lon: p.lon, codes: [p.code] }));
+    smartCache.set(key, out); return out;
+  }
+  out.offset = true; out.D = D;
+  const used = new Set();
+  flowers.forEach(g => { g.sup.forEach(k => used.add(k)); out.targets.push({ type: 'flower', ...toLL(g.c), codes: g.sup.map(k => list[k].code) }); });
+  out.recovered = flowers.length;
+  // 2. 兩點：圓交點中只有一個在 15° 格上
+  const rest = () => [...Array(n).keys()].filter(k => !used.has(k));
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const R = rest();
+    for (let ai = 0; ai < R.length && !changed; ai++) for (let bi = ai + 1; bi < R.length && !changed; bi++) {
+      const a = P[R[ai]], b = P[R[bi]], dd = dist(a, b);
+      if (dd > 2 * D || dd < 1) continue;
+      const h = Math.sqrt(Math.max(D * D - dd * dd / 4, 0)), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, ux = (b.x - a.x) / dd, uy = (b.y - a.y) / dd;
+      const cands = [1, -1].map(sg => ({ x: mx - sg * h * uy, y: my + sg * h * ux })).filter(c => onGrid(c, a) && onGrid(c, b));
+      if (cands.length === 1) {
+        const sup = support(cands[0], D).filter(k => !used.has(k));
+        sup.forEach(k => used.add(k));
+        out.targets.push({ type: 'flower', ...toLL(cands[0]), codes: sup.map(k => list[k].code) });
+        out.pairs++; changed = true;
+      }
+    }
+  }
+  // 3. 其餘：繞圈
+  rest().forEach(k => out.targets.push({ type: 'loop', lat: list[k].lat, lon: list[k].lon, codes: [list[k].code] }));
+  out.loops = out.targets.filter(t => t.type === 'loop').length;
+  smartCache.set(key, out);
+  if (smartCache.size > 20) smartCache.delete(smartCache.keys().next().value);
+  return out;
+}
+function smartOrdered(list) { return shortestOrder(smartPlan(list).targets); }
+function buildSmartSteps(targets) {
+  const out = []; let prev = null;
+  targets.forEach((t, i) => {
+    if (t.type !== 'loop') { const q = { lat: t.lat, lon: t.lon }; out.push(q); prev = q; return; }
+    const v = prev ? mXY(prev, t) : (targets[i + 1] ? mXY(t, targets[i + 1]) : { x: 0, y: 1 });
+    let b0 = Math.atan2(v.x, v.y); if (!isFinite(b0) || (v.x === 0 && v.y === 0)) b0 = 0;
+    const cl = Math.cos(t.lat * Math.PI / 180), ring = [];
+    for (let k = 0; k < 8; k++) { const b = b0 + k * Math.PI / 4; ring.push({ lat: t.lat + SMART_LOOP_R * Math.cos(b) / PLANT_M, lon: t.lon + SMART_LOOP_R * Math.sin(b) / (PLANT_M * cl) }); }
+    out.push(...ring, ring[0]); prev = ring[0];
+  });
+  return out;
+}
+const MODES = ['smart', 'pick', 'plant'];
+let pathMode = 'smart';
+try { const m = localStorage.getItem('gpxPathMode.v2'); if (MODES.includes(m)) pathMode = m; } catch (e) {}
+const walkOf = (list, mode) => (mode || pathMode) === 'plant' ? shortestOrder(list) : list;
+const stepsOf = (list, mode) => {
+  const m = mode || pathMode;
+  if (m === 'plant') return buildPlantSteps(shortestOrder(list));
+  if (m === 'smart') return buildSmartSteps(smartOrdered(list));
+  return buildAllSteps(list);
+};
+const perStation = mode => (mode || pathMode) === 'plant' ? 9 : 24;
 function xmlEsc(s) { return String(s).replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[ch])); }
 function buildGPX(points, routeName) {
   let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Suderpanda">\n`;
@@ -1088,10 +1269,22 @@ function drawMap() {
     els.canvas.setAttribute('aria-label', '點位相對位置預覽，目前沒有任何點');
     return;
   }
-  const rp = routePts();
+  const rp = walkOf(routePts());
+  const smart = pathMode === 'smart' ? smartOrdered(routePts()) : null;
+  if (smart) {
+    ctx.lineWidth = 2; ctx.globalAlpha = .8; ctx.strokeStyle = c.r1; ctx.beginPath();
+    buildSmartSteps(smart).map(s => g.scr(s)).forEach((q, k) => k ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y));
+    ctx.stroke(); ctx.globalAlpha = 1;
+  }
 
+  // 種花：繞圈路徑
+  if (pathMode === 'plant' && els.detail.checked && g.s * 30 > 6) {
+    ctx.lineWidth = 1.6; ctx.globalAlpha = .85; ctx.strokeStyle = c.r1; ctx.beginPath();
+    buildPlantSteps(rp).map(s => g.scr(s)).forEach((q, k) => k ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y));
+    ctx.stroke(); ctx.globalAlpha = 1;
+  }
   // R1／R2 細部路徑（只畫路線中的點）
-  if (els.detail.checked && g.s * 30 > 6) {
+  if (pathMode === 'pick' && els.detail.checked && g.s * 30 > 6) {
     ctx.lineWidth = 1.6; ctx.globalAlpha = .85;
     rp.forEach(p => {
       const st = buildStationSteps(p, 0);
@@ -1116,6 +1309,7 @@ function drawMap() {
     hitBoxes.push({ code: p.code, x: q.x, y: q.y, rx: w / 2 + 4, ry: h / 2 + 6 });
   });
 
+  if (smart) { drawSmart(g, c, smart, sans, mono); return; }
   // 路線箭頭
   const rs = rp.map(g.scr);
   for (let i = 0; i < rs.length - 1; i++) arrow(rs[i], rs[i + 1], c.accent, RAD);
@@ -1136,6 +1330,49 @@ function drawMap() {
   });
   ctx.textAlign = 'center';
   els.canvas.setAttribute('aria-label', `點位相對位置預覽，共 ${points.length} 點，其中 ${rp.length} 點在路線中${rp.length ? '，順序為 ' + rp.map(p => p.code).join('、') : ''}。`);
+}
+
+function drawSmart(g, c, order, sans, mono) {
+  const okc = css('--ok') || c.accent;
+  const tgtOf = {}; order.forEach((t, i) => t.codes.forEach(cd => { tgtOf[cd] = { t, i }; }));
+  // 偏移點：小空心圓＋虛線連到還原的花
+  routePts().forEach(p => {
+    const q = g.scr(p), info = tgtOf[p.code];
+    if (info && info.t.type === 'flower') {
+      const f = g.scr(info.t); ctx.setLineDash([3, 3]); ctx.lineWidth = 1; ctx.strokeStyle = okc;
+      ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(f.x, f.y); ctx.stroke(); ctx.setLineDash([]);
+    }
+    if (p.code === hoverCode) { ctx.beginPath(); ctx.arc(q.x, q.y, 14, 0, Math.PI * 2); ctx.lineWidth = 3; ctx.strokeStyle = c.focus; ctx.stroke(); }
+    if (!info || info.t.type !== 'loop') {
+      ctx.beginPath(); ctx.arc(q.x, q.y, 6, 0, Math.PI * 2); ctx.fillStyle = c.surface; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = c.accent; ctx.stroke();
+    }
+    ctx.font = '500 11px ' + mono; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 4; ctx.strokeStyle = c.bg; ctx.strokeText(p.code, q.x + 9, q.y - 9);
+    ctx.fillStyle = c.muted; ctx.fillText(p.code, q.x + 9, q.y - 9);
+    hitBoxes.push({ code: p.code, x: q.x, y: q.y, rx: 14, ry: 14 });
+  });
+  // 行走順序
+  order.forEach((t, i) => {
+    const q = g.scr(t), r = t.type === 'flower' ? 13 : 11;
+    ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = t.type === 'flower' ? okc : c.accent; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = c.surface; ctx.stroke();
+    ctx.fillStyle = c.on; ctx.font = '700 12px ' + sans; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(i + 1), q.x, q.y + 1);
+  });
+  ctx.textAlign = 'center';
+  const pl = smartPlan(routePts());
+  els.canvas.setAttribute('aria-label', `智慧採果預覽：${pl.offset ? `還原 ${pl.recovered + pl.pairs} 朵花直接經過，${pl.loops} 個點繞圈` : `直接經過 ${order.length} 個座標`}，共 ${order.length} 站。`);
+}
+function updateSmartInfo() {
+  const el = $('smartInfo'); if (!el) return;
+  const list = routePts();
+  if (!list.length) { el.textContent = '加入座標後會自動分析。'; return; }
+  const pl = smartPlan(list);
+  el.textContent = pl.offset
+    ? `偵測到偏移座標（偏移 ${pl.D} m）：還原 ${pl.recovered + pl.pairs} 朵花直接經過、${pl.loops} 個點繞 30 m 圈，共 ${pl.targets.length} 站。`
+    : `沒有偵測到偏移，直接經過全部 ${list.length} 個座標。若這是別人分享的偏移座標，點數太少無法還原，建議改用「雙圈採果」。`;
 }
 
 /* 畫布互動：平移、縮放、點選 */
@@ -1229,6 +1466,8 @@ function fileName() {
   const name = num ? head + (parts.length ? '_' : '') + parts.join('_') : head + parts.join('_');
   return name || todayName();
 }
+// 前綴：採果／種花／不加；舊版的「臨時」視為「採果」
+function normPre(x) { return x === '臨時' ? '採果' : (['採果', '種花'].includes(x) ? x : ''); }
 function saveNameFields() {
   try { localStorage.setItem(NAME_KEY, JSON.stringify({ prefix: NF.prefix.value })); } catch (e) {}
 }
@@ -1237,15 +1476,15 @@ function loadNameFields() {
   let d = null;
   try { d = JSON.parse(localStorage.getItem(NAME_KEY) || 'null'); } catch (e) {}
   const pre = d ? (d.prefix !== undefined ? d.prefix : (d.v && d.v.prefix)) : '';
-  NF.prefix.value = pre === '臨時' ? '臨時' : '';
+  NF.prefix.value = d ? normPre(pre) : '採果';
   NF.num.value = nextNum();
 }
 Object.values(NF).forEach(el => { el.addEventListener('input', () => { updateOutput(); saveNameFields(); }); el.addEventListener('change', () => { updateOutput(); saveNameFields(); }); });
 NF.num.addEventListener('blur', () => { const v = numVal(); if (v) { NF.num.value = v; saveNameFields(); updateOutput(); } });
 
-function currentGPX() { return buildGPX(buildAllSteps(routePts()), fileName()); }
+function currentGPX() { return buildGPX(stepsOf(routePts()), fileName()); }
 function updateOutput() {
-  const steps = buildAllSteps(routePts());
+  const steps = stepsOf(routePts());
   let dist = 0;
   for (let i = 1; i < steps.length; i++) {
     const dLat = (steps[i].lat - steps[i-1].lat) * LAT_M_PER_DEG;
@@ -1259,6 +1498,7 @@ function updateOutput() {
   $('stMin').textContent = Math.round(km / speed * 60);
   $('nCount').textContent = route.length + '個';
   $('namePreview').textContent = fileName() + '.gpx';
+  if (typeof updateSmartInfo === 'function') updateSmartInfo();
   els.gpxOut.value = steps.length ? currentGPX() : '';
 }
 function refresh(focus) {
@@ -1270,7 +1510,7 @@ $('btnCopy').addEventListener('click', () => {
   if (!route.length) { toast('路線是空的，請先加入站點'); return; }
   const text = currentGPX();
   const fallback = () => { $('gpxDetails').open = true; els.gpxOut.focus(); els.gpxOut.select(); toast('無法自動複製，已選取全文，請按 Ctrl+C 或長按複製'); };
-  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => toast(`已複製 GPX（${route.length} 站、${route.length * 24} 點）`), fallback);
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => toast(`已複製 GPX（${route.length} 點、軌跡 ${stepsOf(routePts()).length} 點）`), fallback);
   else fallback();
 });
 
@@ -1318,7 +1558,7 @@ function nextNum() {
 function addDlRecord(fname) {
   dlHist.unshift({
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-    name: fname, at: Date.now(), speed: els.speed.value,
+    name: fname, at: Date.now(), speed: els.speed.value, mode: pathMode,
     f: { prefix: NF.prefix.value, num: numVal(), town: NF.town.value.trim(), area: NF.area.value.trim(), hour: NF.hour.value.trim() },
     pts: routePts().map(p => [+p.lat.toFixed(7), +p.lon.toFixed(7)])
   });
@@ -1326,7 +1566,7 @@ function addDlRecord(fname) {
   saveDlHist(); renderDlHist();
 }
 const fmtTime = t => { const d = new Date(t), z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}/${z(d.getMonth() + 1)}/${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`; };
-const recGpx = r => buildGPX(buildAllSteps(r.pts.map(([lat, lon]) => ({ lat, lon }))), r.name);
+const recGpx = r => buildGPX(stepsOf(r.pts.map(([lat, lon]) => ({ lat, lon })), r.mode || 'pick'), r.name);
 function renderDlHist(focusSel) {
   const ul = $('dlList'); ul.innerHTML = '';
   $('dlCount').textContent = dlHist.length ? `共 ${dlHist.length} 筆` : '';
@@ -1335,7 +1575,7 @@ function renderDlHist(focusSel) {
   dlHist.forEach(r => {
     const li = document.createElement('li'); li.className = 'dlrec'; li.dataset.id = r.id;
     const nm = document.createElement('div'); nm.className = 'dlname'; nm.textContent = r.name + '.gpx';
-    const meta = document.createElement('div'); meta.className = 'dlmeta'; meta.textContent = `${fmtTime(r.at)}・${r.pts.length} 站`;
+    const meta = document.createElement('div'); meta.className = 'dlmeta'; meta.textContent = `${fmtTime(r.at)}・${r.pts.length} 點・${({ plant: '種花', smart: '智慧採果' })[r.mode] || '雙圈採果'}`;
     const acts = document.createElement('div'); acts.className = 'dlacts';
     acts.innerHTML = `<button class="btn sm load" type="button">載回編輯</button><button class="btn sm again" type="button">${ICON.dl}重新下載</button><button class="btn sm share1" type="button">分享</button><button class="ibtn del" type="button">${ICON.del}</button>`;
     acts.querySelector('.load').setAttribute('aria-label', `載回編輯 ${r.name}`);
@@ -1351,12 +1591,12 @@ $('dlList').addEventListener('click', async e => {
   const idx = dlHist.findIndex(r => r.id === li.dataset.id); if (idx < 0) return;
   const r = dlHist[idx];
   if (e.target.closest('.again')) { await saveGpxFile(r.name, recGpx(r)); }
-  else if (e.target.closest('.share1')) { shareShort(shareUrl(r.pts.map(([lat, lon]) => ({ lat, lon })), r.f, r.speed), 'copy'); }
+  else if (e.target.closest('.share1')) { shareShort(shareUrl(r.pts.map(([lat, lon]) => ({ lat, lon })), r.f, r.speed, r.mode || 'pick'), 'copy'); }
   else if (e.target.closest('.load')) {
     pushHistory();
     points = r.pts.map(([lat, lon], i) => ({ code: 'P' + (i + 1), lat, lon }));
     route = points.map(p => p.code); pNext = points.length + 1;
-    NF.prefix.value = r.f.prefix === '臨時' ? '臨時' : ''; NF.num.value = r.f.num || '';
+    NF.prefix.value = normPre(r.f.prefix); setPathMode(MODES.includes(r.mode) ? r.mode : 'pick', true); NF.num.value = r.f.num || '';
     NF.town.value = r.f.town || ''; NF.area.value = r.f.area || ''; NF.hour.value = r.f.hour || '';
     if (r.speed) els.speed.value = r.speed;
     saveNameFields(); resetView(); refresh();
@@ -1406,7 +1646,7 @@ function decodePts(str) {
   return pts.length > 500 ? null : pts;
 }
 const canShare = () => /^https?:$/.test(location.protocol) && !/claude/i.test(location.hostname);
-function shareUrl(pts, f, speed) {
+function shareUrl(pts, f, speed, mode) {
   const q = new URLSearchParams();
   q.set('v', '1');
   if (f.prefix) q.set('pre', f.prefix);
@@ -1415,6 +1655,7 @@ function shareUrl(pts, f, speed) {
   if (f.area) q.set('area', f.area);
   if (f.hour !== '' && f.hour !== undefined) q.set('hour', f.hour);
   if (speed && String(speed) !== '19') q.set('s', speed);
+  if ((mode || pathMode) !== 'pick') q.set('m', mode || pathMode);
   q.set('p', encodePts(pts));
   return location.origin + location.pathname + '#' + q.toString();
 }
@@ -1474,7 +1715,7 @@ function loadShared() {
   pushHistory();
   points = pts.map((p, i) => ({ code: 'P' + (i + 1), lat: p.lat, lon: p.lon }));
   route = points.map(p => p.code); pNext = points.length + 1;
-  NF.prefix.value = q.get('pre') === '臨時' ? '臨時' : '';
+  NF.prefix.value = normPre(q.get('pre')); setPathMode(MODES.includes(q.get('m')) ? q.get('m') : 'pick', true);
   NF.num.value = /^\d{1,2}$/.test(q.get('num') || '') ? q.get('num').padStart(2, '0') : '';
   NF.town.value = q.get('town') || ''; NF.area.value = q.get('area') || ''; NF.hour.value = q.get('hour') || '';
   if (q.get('s')) els.speed.value = q.get('s');
@@ -1490,17 +1731,35 @@ function loadShared() {
   toast(`已開啟分享的路線（${pts.length} 站）`); announce(`已開啟分享的路線 ${nm}，共 ${pts.length} 站`);
 }
 
+/* ===== 路徑模式 ===== */
+function setPathMode(m, quiet) {
+  const old = pathMode; pathMode = MODES.includes(m) ? m : 'smart';
+  document.body.classList.toggle('plant', pathMode === 'plant');
+  document.body.classList.toggle('smart', pathMode === 'smart');
+  document.querySelectorAll('input[name="pmode"]').forEach(r => { r.checked = r.value === pathMode; });
+  try { localStorage.setItem('gpxPathMode.v2', pathMode); } catch (e) {}
+  if (!quiet && old !== pathMode) {
+    if (pathMode === 'plant' && NF.prefix.value === '採果') NF.prefix.value = '種花';
+    if (pathMode !== 'plant' && NF.prefix.value === '種花') NF.prefix.value = '採果';
+    saveNameFields();
+  }
+  drawMap(); updateOutput();
+  if (!quiet && old !== pathMode) announce(({ plant: '已切換為種花模式，下載時自動排最短路線', smart: '已切換為智慧採果，自動還原偏移座標並排最短路線', pick: '已切換為雙圈採果' })[pathMode]);
+}
+document.querySelectorAll('input[name="pmode"]').forEach(r => r.addEventListener('change', () => { if (r.checked) setPathMode(r.value); }));
+
 /* ===== 手機精簡版 ===== */
 const MODE_KEY = 'gpxViewMode.v1';
 const mq = matchMedia('(max-width: 760px)');
 const namerEl = document.querySelector('fieldset.namer');
+const pmodeEl = $('pmodeBox');
 const namerHome = { parent: namerEl.parentNode, next: namerEl.nextSibling };
 const isM = () => document.body.classList.contains('m-mode');
 function prefMode() { try { return localStorage.getItem(MODE_KEY); } catch (e) { return null; } }
 function setMode(m) {
   document.body.classList.toggle('m-mode', m);
-  if (m) $('mNameSlot').appendChild(namerEl);
-  else namerHome.parent.insertBefore(namerEl, namerHome.next);
+  if (m) { $('mNameSlot').appendChild(pmodeEl); $('mNameSlot').appendChild(namerEl); }
+  else { namerHome.parent.insertBefore(namerEl, namerHome.next); namerHome.parent.insertBefore(pmodeEl, namerEl); }
   $('btnMode').textContent = m ? '切換到電腦版' : '切換到手機版';
   if (m) syncMobile(); else requestAnimationFrame(() => { sizeCanvas(); drawMap(); });
 }
@@ -1651,6 +1910,9 @@ new ResizeObserver(sizeCanvas).observe(els.canvas);
 refresh();
 loadShared();
 setMode(prefMode() ? prefMode() === 'm' : mq.matches);
+setPathMode(pathMode, true);
+if (pathMode === 'plant' && NF.prefix.value === '採果') { NF.prefix.value = '種花'; saveNameFields(); updateOutput(); }
+if (pathMode !== 'plant' && NF.prefix.value === '種花') { NF.prefix.value = '採果'; saveNameFields(); updateOutput(); }
 addEventListener('hashchange', loadShared);
 </script>
 
