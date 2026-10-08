@@ -365,7 +365,7 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
         <div class="name-preview"><span class="lbl">完整檔名</span><output id="namePreview" aria-live="polite"></output></div>
       </fieldset>
       <input type="hidden" id="speed" value="19">
-      <p class="note" id="densHint">固定以 19 km/h 補點：每 5.3 m 一點，App 每跳 1 秒剛好等於 19 km/h。</p>
+      <p class="note" id="densHint">自動補點：每跳最多 18 m，和原本雙圈的節奏相同（App 每跳 1 秒），避免一次瞬移太遠。預估時間＝點數 × 1 秒。</p>
       <div class="row">
         <button class="btn primary" id="btnCopy" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h9"/></svg>複製 GPX</button>
         <button class="btn" id="btnDownload" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>下載 .gpx</button>
@@ -1497,8 +1497,8 @@ function densifySteps(steps, gap) {
   }
   return out;
 }
-const FIX_SPEED = 19;
-const outSteps = (list, mode) => densifySteps(stepsOf(list, mode), densGap(FIX_SPEED));
+const FIX_SPEED = 19, MAX_JUMP = 18;
+const outSteps = (list, mode) => densifySteps(stepsOf(list, mode), MAX_JUMP);
 const curSteps = () => outSteps(routePts(), pathMode);
 function currentGPX() { return buildGPX(curSteps(), fileName()); }
 function updateOutput() {
@@ -1513,7 +1513,7 @@ function updateOutput() {
   $('stStops').textContent = route.length;
   $('stPts').textContent = steps.length;
   $('stKm').textContent = km.toFixed(2);
-  $('stMin').textContent = Math.round(km / speed * 60);
+  $('stMin').textContent = Math.max(steps.length ? 1 : 0, Math.round(steps.length * JUMP_SEC / 60));
   $('nCount').textContent = route.length + '個';
   $('namePreview').textContent = fileName() + '.gpx';
   if (typeof updateSmartInfo === 'function') updateSmartInfo();
