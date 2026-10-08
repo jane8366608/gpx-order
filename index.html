@@ -145,6 +145,8 @@ body.plant .pick-only, body.smart .pick-only{display:none}
 .pmode{grid-template-columns:repeat(3,1fr)}
 .pmode .smartinfo{grid-column:1 / -1;margin:2px 0 0}
 .dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.dens{display:grid;gap:2px;align-content:end}
+.dens small{color:var(--muted);font-size:.8rem}
 .dllist{list-style:none;margin:0;padding:0;display:grid;gap:4px}
 .dlrec{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 6px 6px 12px}
 .dlname{font-weight:500;overflow-wrap:anywhere}
@@ -187,7 +189,8 @@ canvas#map{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
 .stats dd{margin:0;font-size:1.25rem;font-weight:700;font-variant-numeric:tabular-nums}
 .stats dd small{font-size:.8rem;font-weight:400;color:var(--muted);margin-left:2px}
 @media (max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}}
-.fields{display:grid;grid-template-columns:minmax(0,12em);gap:10px}
+.fields{display:grid;grid-template-columns:minmax(0,10em) minmax(0,1fr);gap:10px 16px;align-items:end}
+@media (max-width:520px){.fields{grid-template-columns:1fr}}
 .fields > div{display:grid;gap:4px}
 .namer{border:1px solid var(--line);border-radius:8px;padding:12px 14px 14px;margin:0;display:grid;gap:12px;min-width:0}
 .namer legend{font-weight:700;padding:0 6px}
@@ -361,9 +364,8 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
         </div>
         <div class="name-preview"><span class="lbl">完整檔名</span><output id="namePreview" aria-live="polite"></output></div>
       </fieldset>
-      <div class="fields">
-        <div><label for="speed">速度 km/h</label><input type="number" id="speed" min="1" max="200" step="1" value="19"></div>
-      </div>
+      <input type="hidden" id="speed" value="19">
+      <p class="note" id="densHint">固定以 19 km/h 補點：每 5.3 m 一點，App 每跳 1 秒剛好等於 19 km/h。</p>
       <div class="row">
         <button class="btn primary" id="btnCopy" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h9"/></svg>複製 GPX</button>
         <button class="btn" id="btnDownload" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>下載 .gpx</button>
@@ -957,7 +959,6 @@ function load() {
     const d = JSON.parse(raw);
     points = d.points || []; route = (d.route || []).filter(c => points.some(p => p.code === c));
     pNext = d.pNext || (points.length ? Math.max(...points.map(p => codeNum(p.code))) + 1 : 1);
-    if (d.speed) els.speed.value = d.speed;
     if (typeof d.detail === 'boolean') els.detail.checked = d.detail;
     return true;
   } catch (e) { return false; }
@@ -1482,16 +1483,33 @@ function loadNameFields() {
 Object.values(NF).forEach(el => { el.addEventListener('input', () => { updateOutput(); saveNameFields(); }); el.addEventListener('change', () => { updateOutput(); saveNameFields(); }); });
 NF.num.addEventListener('blur', () => { const v = numVal(); if (v) { NF.num.value = v; saveNameFields(); updateOutput(); } });
 
-function currentGPX() { return buildGPX(stepsOf(routePts()), fileName()); }
+// 依時速補點：App 每跳 1 秒，所以每點間距 = 時速(m/s) × 1 秒
+const JUMP_SEC = 1;
+const densGap = sp => Math.max(1, (parseFloat(sp) || 19) / 3.6 * JUMP_SEC);
+function densifySteps(steps, gap) {
+  if (!steps.length) return steps;
+  const out = [steps[0]];
+  for (let i = 1; i < steps.length; i++) {
+    const a = steps[i - 1], b = steps[i];
+    const L = mDist(a, b), n = Math.ceil(L / gap);
+    for (let k = 1; k < n; k++) out.push({ lat: a.lat + (b.lat - a.lat) * k / n, lon: a.lon + (b.lon - a.lon) * k / n });
+    out.push(b);
+  }
+  return out;
+}
+const FIX_SPEED = 19;
+const outSteps = (list, mode) => densifySteps(stepsOf(list, mode), densGap(FIX_SPEED));
+const curSteps = () => outSteps(routePts(), pathMode);
+function currentGPX() { return buildGPX(curSteps(), fileName()); }
 function updateOutput() {
-  const steps = stepsOf(routePts());
+  const steps = curSteps();
   let dist = 0;
   for (let i = 1; i < steps.length; i++) {
     const dLat = (steps[i].lat - steps[i-1].lat) * LAT_M_PER_DEG;
     const dLon = (steps[i].lon - steps[i-1].lon) * LAT_M_PER_DEG * Math.cos(steps[i].lat * Math.PI / 180);
     dist += Math.hypot(dLat, dLon);
   }
-  const km = dist / 1000, speed = parseFloat(els.speed.value) || 19;
+  const km = dist / 1000, speed = FIX_SPEED;
   $('stStops').textContent = route.length;
   $('stPts').textContent = steps.length;
   $('stKm').textContent = km.toFixed(2);
@@ -1510,7 +1528,7 @@ $('btnCopy').addEventListener('click', () => {
   if (!route.length) { toast('路線是空的，請先加入站點'); return; }
   const text = currentGPX();
   const fallback = () => { $('gpxDetails').open = true; els.gpxOut.focus(); els.gpxOut.select(); toast('無法自動複製，已選取全文，請按 Ctrl+C 或長按複製'); };
-  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => toast(`已複製 GPX（${route.length} 點、軌跡 ${stepsOf(routePts()).length} 點）`), fallback);
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => toast(`已複製 GPX（${route.length} 點、軌跡 ${curSteps().length} 點）`), fallback);
   else fallback();
 });
 
@@ -1566,7 +1584,7 @@ function addDlRecord(fname) {
   saveDlHist(); renderDlHist();
 }
 const fmtTime = t => { const d = new Date(t), z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}/${z(d.getMonth() + 1)}/${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`; };
-const recGpx = r => buildGPX(stepsOf(r.pts.map(([lat, lon]) => ({ lat, lon })), r.mode || 'pick'), r.name);
+const recGpx = r => buildGPX(outSteps(r.pts.map(([lat, lon]) => ({ lat, lon })), r.mode || 'pick'), r.name);
 function renderDlHist(focusSel) {
   const ul = $('dlList'); ul.innerHTML = '';
   $('dlCount').textContent = dlHist.length ? `共 ${dlHist.length} 筆` : '';
@@ -1598,7 +1616,6 @@ $('dlList').addEventListener('click', async e => {
     route = points.map(p => p.code); pNext = points.length + 1;
     NF.prefix.value = normPre(r.f.prefix); setPathMode(MODES.includes(r.mode) ? r.mode : 'pick', true); NF.num.value = r.f.num || '';
     NF.town.value = r.f.town || ''; NF.area.value = r.f.area || ''; NF.hour.value = r.f.hour || '';
-    if (r.speed) els.speed.value = r.speed;
     saveNameFields(); resetView(); refresh();
     toast(`已載回 ${r.name}（${r.pts.length} 站），可按復原`); announce(`已載回 ${r.name}，共 ${r.pts.length} 站`);
     $('routePanel').focus({ preventScroll: true }); $('routePanel').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
@@ -1718,7 +1735,6 @@ function loadShared() {
   NF.prefix.value = normPre(q.get('pre')); setPathMode(MODES.includes(q.get('m')) ? q.get('m') : 'pick', true);
   NF.num.value = /^\d{1,2}$/.test(q.get('num') || '') ? q.get('num').padStart(2, '0') : '';
   NF.town.value = q.get('town') || ''; NF.area.value = q.get('area') || ''; NF.hour.value = q.get('hour') || '';
-  if (q.get('s')) els.speed.value = q.get('s');
   els.input.value = '';
   saveNameFields(); resetView(); refresh();
   const nm = fileName();
