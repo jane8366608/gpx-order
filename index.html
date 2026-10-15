@@ -304,8 +304,8 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
         <span class="pick-only"><i class="sw r1" aria-hidden="true"></i>R1 30 m</span>
         <span class="pick-only"><i class="sw r2" aria-hidden="true"></i>R2 15 m</span>
         <span class="plant-only"><i class="sw r1" aria-hidden="true"></i>繞圈 30 m</span>
-        <span class="smart-only"><i class="dot" style="background:var(--ok)" aria-hidden="true"></i>還原的花（直接經過）</span>
-        <span class="smart-only"><i class="sw r1" aria-hidden="true"></i>還原不到：繞 30 m</span>
+        <span class="smart-only"><i class="dot" style="background:var(--ok)" aria-hidden="true"></i>還原的花（以花為圓心繞 30 m）</span>
+        <span class="smart-only"><i class="sw r1" aria-hidden="true"></i>繞圈路徑 30 m</span>
         <label class="check"><input type="checkbox" id="showDetail" checked> 顯示細部路徑</label>
       </div>
       <p class="note">拖曳平移、滾輪或雙指縮放。滑過或聚焦清單中的點，預覽會標出位置。</p>
@@ -388,7 +388,7 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
         <textarea id="gpxOut" readonly spellcheck="false"></textarea>
       </details>
       <p class="note pick-only">每站 24 點：R1 15 點＋R2 9 點。R1 第 13 點與 R2 第 1 點同座標，依原工具保留。</p>
-      <p class="note smart-only">還原得到的花直接從上面經過（0 m）；還原不到的點繞半徑 30 m 八角形一圈（離花約 26～28 m）；偵測不到偏移時直接經過每個座標。</p>
+      <p class="note smart-only">每站繞半徑 30 m 八角形一圈：還原得到的花以真花為圓心（整圈離花 30 m），還原不到的以座標點為圓心；繞圈內每跳最多 18 m，站與站之間直接跳過去。</p>
       <p class="note plant-only">每站 9 點：半徑 30 m 八角形順時針繞一圈；從上一站穿過中心後進入，自動排最短路線。</p>
     </section>
 
@@ -809,18 +809,19 @@ function smartPlan(list) {
   return out;
 }
 function smartOrdered(list) { return shortestOrder(smartPlan(list).targets); }
-function buildSmartSteps(targets) {
-  const out = []; let prev = null;
+// 每站都繞一圈（半徑 30 m）：還原的花以真花為圓心，其餘以座標點為圓心；入口在上一站穿過圓心的對側
+function smartRings(targets) {
+  const rings = []; let prev = null;
   targets.forEach((t, i) => {
-    if (t.type !== 'loop') { const q = { lat: t.lat, lon: t.lon }; out.push(q); prev = q; return; }
     const v = prev ? mXY(prev, t) : (targets[i + 1] ? mXY(t, targets[i + 1]) : { x: 0, y: 1 });
     let b0 = Math.atan2(v.x, v.y); if (!isFinite(b0) || (v.x === 0 && v.y === 0)) b0 = 0;
     const cl = Math.cos(t.lat * Math.PI / 180), ring = [];
     for (let k = 0; k < 8; k++) { const b = b0 + k * Math.PI / 4; ring.push({ lat: t.lat + SMART_LOOP_R * Math.cos(b) / PLANT_M, lon: t.lon + SMART_LOOP_R * Math.sin(b) / (PLANT_M * cl) }); }
-    out.push(...ring, ring[0]); prev = ring[0];
+    ring.push(ring[0]); rings.push(ring); prev = ring[0];
   });
-  return out;
+  return rings;
 }
+function buildSmartSteps(targets) { return smartRings(targets).flat(); }
 const MODES = ['smart', 'pick', 'plant'];
 let pathMode = 'smart';
 try { const m = localStorage.getItem('gpxPathMode.v2'); if (MODES.includes(m)) pathMode = m; } catch (e) {}
@@ -1364,7 +1365,7 @@ function drawSmart(g, c, order, sans, mono) {
   });
   ctx.textAlign = 'center';
   const pl = smartPlan(routePts());
-  els.canvas.setAttribute('aria-label', `智慧採果預覽：${pl.offset ? `還原 ${pl.recovered + pl.pairs} 朵花直接經過，${pl.loops} 個點繞圈` : `直接經過 ${order.length} 個座標`}，共 ${order.length} 站。`);
+  els.canvas.setAttribute('aria-label', `智慧採果預覽：${pl.offset ? `還原 ${pl.recovered + pl.pairs} 朵花繞圈，${pl.loops} 個點繞圈` : `${order.length} 個座標各繞一圈`}，共 ${order.length} 站。`);
 }
 function updateSmartInfo() {
   const el = $('smartInfo'); if (!el) return;
@@ -1372,8 +1373,8 @@ function updateSmartInfo() {
   if (!list.length) { el.textContent = '加入座標後會自動分析。'; return; }
   const pl = smartPlan(list);
   el.textContent = pl.offset
-    ? `偵測到偏移座標（偏移 ${pl.D} m）：還原 ${pl.recovered + pl.pairs} 朵花直接經過、${pl.loops} 個點繞 30 m 圈，共 ${pl.targets.length} 站。`
-    : `沒有偵測到偏移，直接經過全部 ${list.length} 個座標。若這是別人分享的偏移座標，點數太少無法還原，建議改用「雙圈採果」。`;
+    ? `偵測到偏移座標（偏移 ${pl.D} m）：還原 ${pl.recovered + pl.pairs} 朵花（以花為圓心繞 30 m）、${pl.loops} 個點以座標繞 30 m，共 ${pl.targets.length} 站。`
+    : `沒有偵測到偏移，${list.length} 個座標各繞 30 m 一圈。若這是別人分享的偏移座標但點數太少無法還原，也可改用「雙圈採果」。`;
 }
 
 /* 畫布互動：平移、縮放、點選 */
@@ -1501,7 +1502,9 @@ function densifySteps(steps, gap) {
   return out;
 }
 const FIX_SPEED = 19, MAX_JUMP = 18;
-const outSteps = (list, mode) => densifySteps(stepsOf(list, mode), MAX_JUMP);
+const outSteps = (list, mode) => (mode || pathMode) === 'smart'
+  ? smartRings(smartOrdered(list)).flatMap(r => densifySteps(r, MAX_JUMP))   // 繞圈內每跳最多 18 m，站與站之間直接跳
+  : densifySteps(stepsOf(list, mode), MAX_JUMP);
 const curSteps = () => outSteps(routePts(), pathMode);
 function currentGPX() { return buildGPX(curSteps(), fileName()); }
 function updateOutput() {
