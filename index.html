@@ -1616,8 +1616,9 @@ try { dlHist = JSON.parse(localStorage.getItem(DL_KEY) || '[]') || []; } catch (
 function saveDlHist() { try { localStorage.setItem(DL_KEY, JSON.stringify(dlHist)); } catch (e) { toast('紀錄空間已滿，請刪除部分下載紀錄'); } }
 // 編號＝下載當下的月日_時分（例 1024_1530）；手動改過就以手動為準，下載後恢復自動
 function nextNum() {
-  const d = new Date(), z = n => String(n).padStart(2, '0');
-  return `${z(d.getMonth() + 1)}${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}`;
+  // 固定用台灣時間（UTC+8），不受手機或瀏覽器時區設定影響
+  const d = new Date(Date.now() + 8 * 3600 * 1000), z = n => String(n).padStart(2, '0');
+  return `${z(d.getUTCMonth() + 1)}${z(d.getUTCDate())}_${z(d.getUTCHours())}${z(d.getUTCMinutes())}`;
 }
 let numManual = false;
 setInterval(() => { if (!numManual && NF.num.value !== nextNum()) { NF.num.value = nextNum(); updateOutput(); } }, 15000);
