@@ -273,7 +273,7 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
     <section class="panel mstep" aria-labelledby="mT2">
       <h2 id="mT2"><span class="no" aria-hidden="true">2</span>檔名</h2>
       <div id="mNameSlot">
-        <div class="mfield"><label for="mNum">編號</label><input type="text" id="mNum" inputmode="numeric" maxlength="3" autocomplete="off" aria-describedby="mNumHint"><small id="mNumHint">自動接續下載紀錄，可手動改</small></div>
+        <div class="mfield"><label for="mNum">編號</label><input type="text" id="mNum" maxlength="9" autocomplete="off" aria-describedby="mNumHint"><small id="mNumHint">自動帶入下載當下的月日時分，可手動改</small></div>
         <fieldset class="mchips"><legend>顏色</legend><div class="chips" id="mColors"></div></fieldset>
         <div class="mfield"><label for="mFlower">花名</label><input type="text" id="mFlower" autocomplete="off" placeholder="點下方按鈕，或自行輸入"></div>
         <div class="chips" id="mRecent" aria-label="最近用過的花名"></div>
@@ -375,7 +375,7 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
         <legend>軌跡名稱</legend>
         <div class="nf">
           <div><label for="nPrefix">前綴</label><select id="nPrefix" aria-describedby="nPrefixHint"><option value="路徑">路徑</option><option value="軌跡">軌跡</option><option value="種花">種花</option><option value="">不加</option></select><small id="nPrefixHint">智慧採果＝路徑、雙圈＝軌跡、種花＝種花，切換時自動帶入</small></div>
-          <div><label for="nNum">編號</label><input type="text" id="nNum" inputmode="numeric" maxlength="3" autocomplete="off" aria-describedby="nNumHint"><small id="nNumHint">自動接續下載紀錄，可手動改</small></div>
+          <div><label for="nNum">編號</label><input type="text" id="nNum" maxlength="9" autocomplete="off" aria-describedby="nNumHint"><small id="nNumHint">自動帶入下載當下的月日時分，可手動改</small></div>
           <div><label for="nTown">縣市鄉鎮名</label><input type="text" id="nTown" autocomplete="off"></div>
           <div><label for="nArea">區域指標名</label><input type="text" id="nArea" autocomplete="off"></div>
           <div><span class="lbl" id="nCountLbl">點數</span><output id="nCount" aria-labelledby="nCountLbl">0個</output><small>依路線站數自動計算</small></div>
@@ -853,11 +853,14 @@ const stepsOf = (list, mode) => {
 };
 const perStation = mode => (mode || pathMode) === 'plant' ? 9 : 24;
 function xmlEsc(s) { return String(s).replace(/[<>&"']/g, ch => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[ch])); }
+// 輸出成藍色地圖自己匯出「軌跡」的格式（BlueMap 命名空間＋exportInfo），匯入時才會進軌跡而不是路線
 function buildGPX(points, routeName) {
-  let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Suderpanda">\n`;
-  gpx += `  <trk><name>${xmlEsc(routeName)}</name><trkseg>\n`;
-  points.forEach(p => { gpx += `    <trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}"></trkpt>\n`; });
-  gpx += `  </trkseg></trk>\n</gpx>`;
+  const now = Date.now();
+  let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="BlueMap" xmlns="http://www.topografix.com/GPX/1/1" xmlns:bluemap="https://bluemap.app/xmlns/gpx/1">\n`;
+  gpx += `  <metadata>\n    <time>${new Date(now).toISOString()}</time>\n    <extensions>\n      <bluemap:exportInfo schemaVersion="1"/>\n    </extensions>\n  </metadata>\n`;
+  gpx += `  <trk>\n    <name>${xmlEsc(routeName)}</name>\n    <extensions>\n      <bluemap:savedAt>${now}</bluemap:savedAt>\n    </extensions>\n    <trkseg>\n`;
+  points.forEach(p => { gpx += `      <trkpt lat="${p.lat.toFixed(7)}" lon="${p.lon.toFixed(7)}">\n      </trkpt>\n`; });
+  gpx += `    </trkseg>\n  </trk>\n</gpx>\n`;
   return gpx;
 }
 
@@ -1472,11 +1475,11 @@ function hourVal() {
 }
 function numVal() {
   const raw = NF.num.value.trim();
-  if (raw === '') { NF.num.removeAttribute('aria-invalid'); $('nNumHint').textContent = '自動接續下載紀錄，可手動改'; return ''; }
-  const ok = /^\d{1,3}$/.test(raw);
+  if (raw === '') { NF.num.removeAttribute('aria-invalid'); $('nNumHint').textContent = '自動帶入下載當下的月日時分，可手動改'; return ''; }
+  const ok = /^\d{4}_\d{4}$/.test(raw) || /^\d{1,3}$/.test(raw);
   NF.num.setAttribute('aria-invalid', ok ? 'false' : 'true');
-  $('nNumHint').textContent = ok ? '自動接續下載紀錄，可手動改' : '請填 1～3 位數字，這格暫不列入檔名';
-  return ok ? raw.padStart(2, '0') : '';
+  $('nNumHint').textContent = ok ? '自動帶入下載當下的月日時分，可手動改' : '格式為 月日_時分（例 1024_1530）或 1～3 位數字，這格暫不列入檔名';
+  return ok ? (raw.includes('_') ? raw : raw.padStart(2, '0')) : '';
 }
 // 手機版檔名：編號_顏色花名_站數個（固定智慧採果，不加前綴）
 const isMobileUI = () => document.body.classList.contains('m-mode');
@@ -1505,7 +1508,7 @@ function saveNameFields() {
   try { localStorage.setItem(NAME_KEY, JSON.stringify({ prefix: NF.prefix.value })); } catch (e) {}
 }
 function loadNameFields() {
-  // 只記住前綴；其他格子每次都是空的，編號依下載紀錄自動接續
+  // 只記住前綴；其他格子每次都是空的，編號自動帶入月日時分
   let d = null;
   try { d = JSON.parse(localStorage.getItem(NAME_KEY) || 'null'); } catch (e) {}
   const pre = d ? (d.prefix !== undefined ? d.prefix : (d.v && d.v.prefix)) : '';
@@ -1513,6 +1516,7 @@ function loadNameFields() {
   NF.num.value = nextNum();
 }
 Object.values(NF).forEach(el => { el.addEventListener('input', () => { updateOutput(); saveNameFields(); }); el.addEventListener('change', () => { updateOutput(); saveNameFields(); }); });
+NF.num.addEventListener('input', () => { numManual = NF.num.value.trim() !== ''; });
 NF.num.addEventListener('blur', () => { const v = numVal(); if (v) { NF.num.value = v; saveNameFields(); updateOutput(); } });
 
 // 依時速補點：App 每跳 1 秒，所以每點間距 = 時速(m/s) × 1 秒
@@ -1596,11 +1600,12 @@ async function saveGpxFile(fname, text) {
 }
 $('btnDownload').addEventListener('click', async () => {
   if (!route.length) { toast('路線是空的，請先加入站點'); return; }
+  if (!numManual) NF.num.value = nextNum();
   const fname = fileName(), text = currentGPX();
   if (!(await saveGpxFile(fname, text))) return;
   addDlRecord(fname);
   if (isMobileUI() && typeof rememberFlower === 'function') rememberFlower(($('mFlower').value || '').trim());
-  NF.num.value = nextNum(); updateOutput();
+  numManual = false; NF.num.value = nextNum(); updateOutput();
   announce(`已下載並記錄 ${fname}，編號自動改為 ${NF.num.value}`);
 });
 
@@ -1609,10 +1614,14 @@ const DL_KEY = 'gpxDownloadHistory.v1';
 let dlHist = [];
 try { dlHist = JSON.parse(localStorage.getItem(DL_KEY) || '[]') || []; } catch (e) { dlHist = []; }
 function saveDlHist() { try { localStorage.setItem(DL_KEY, JSON.stringify(dlHist)); } catch (e) { toast('紀錄空間已滿，請刪除部分下載紀錄'); } }
+// 編號＝下載當下的月日_時分（例 1024_1530）；手動改過就以手動為準，下載後恢復自動
 function nextNum() {
-  const max = dlHist.reduce((m, r) => Math.max(m, parseInt(r.f && r.f.num, 10) || 0), 0);
-  return max >= 999 ? '' : String(max + 1).padStart(2, '0');
+  const d = new Date(), z = n => String(n).padStart(2, '0');
+  return `${z(d.getMonth() + 1)}${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}`;
 }
+let numManual = false;
+setInterval(() => { if (!numManual && NF.num.value !== nextNum()) { NF.num.value = nextNum(); updateOutput(); } }, 15000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !numManual) { NF.num.value = nextNum(); updateOutput(); } });
 function addDlRecord(fname) {
   dlHist.unshift({
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -1654,7 +1663,7 @@ $('dlList').addEventListener('click', async e => {
     pushHistory();
     points = r.pts.map(([lat, lon], i) => ({ code: 'P' + (i + 1), lat, lon }));
     route = points.map(p => p.code); pNext = points.length + 1;
-    NF.prefix.value = normPre(r.f.prefix); setPathMode(MODES.includes(r.mode) ? r.mode : 'pick', true); NF.num.value = r.f.num || '';
+    NF.prefix.value = normPre(r.f.prefix); setPathMode(MODES.includes(r.mode) ? r.mode : 'pick', true); NF.num.value = r.f.num || ''; numManual = !!r.f.num;
     NF.town.value = r.f.town || ''; NF.area.value = r.f.area || ''; NF.hour.value = r.f.hour || '';
     saveNameFields(); resetView(); refresh();
     toast(`已載回 ${r.name}（${r.pts.length} 站），可按復原`); announce(`已載回 ${r.name}，共 ${r.pts.length} 站`);
@@ -1773,7 +1782,7 @@ function loadShared() {
   points = pts.map((p, i) => ({ code: 'P' + (i + 1), lat: p.lat, lon: p.lon }));
   route = points.map(p => p.code); pNext = points.length + 1;
   NF.prefix.value = normPre(q.get('pre')); setPathMode(MODES.includes(q.get('m')) ? q.get('m') : 'pick', true);
-  NF.num.value = /^\d{1,3}$/.test(q.get('num') || '') ? q.get('num').padStart(2, '0') : '';
+  const qn = q.get('num') || ''; NF.num.value = /^\d{4}_\d{4}$/.test(qn) ? qn : (/^\d{1,3}$/.test(qn) ? qn.padStart(2, '0') : ''); numManual = !!NF.num.value;
   NF.town.value = q.get('town') || ''; NF.area.value = q.get('area') || ''; NF.hour.value = q.get('hour') || '';
   els.input.value = '';
   saveNameFields(); resetView(); refresh();
@@ -1843,7 +1852,7 @@ $('mFlower').addEventListener('input', () => {
   renderFlowerChips(); updateOutput();
   if ($('mFlower').value.trim()) $('mAllWrap').open = true;
 });
-$('mNum').addEventListener('input', () => { NF.num.value = $('mNum').value; updateOutput(); });
+$('mNum').addEventListener('input', () => { NF.num.value = $('mNum').value; numManual = NF.num.value.trim() !== ''; updateOutput(); });
 $('mNum').addEventListener('blur', () => { const v = numVal(); if (v) { NF.num.value = v; $('mNum').value = v; updateOutput(); } });
 renderColorChips(); renderFlowerChips();
 
