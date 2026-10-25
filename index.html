@@ -232,7 +232,7 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
 .chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:var(--on-accent);font-weight:700}
 .chip:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
 #mRecent:empty{display:none}
-#mAllWrap .chips{padding:10px 12px 12px}
+#mAllWrap .chips{padding:10px 12px 12px;max-height:45vh;overflow-y:auto;overscroll-behavior:contain}
 #mNameSlot .namer{border:0;padding:0}
 #mNameSlot{display:grid;gap:14px}
 #mNameSlot .nf{grid-template-columns:1fr 1fr;gap:10px}
@@ -275,7 +275,7 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
       <div id="mNameSlot">
         <div class="mfield"><label for="mNum">編號</label><input type="text" id="mNum" maxlength="9" autocomplete="off" aria-describedby="mNumHint"><small id="mNumHint">自動帶入下載當下的月日時分，可手動改</small></div>
         <fieldset class="mchips"><legend>顏色</legend><div class="chips" id="mColors"></div></fieldset>
-        <div class="mfield"><label for="mFlower">花名</label><input type="text" id="mFlower" autocomplete="off" placeholder="點下方按鈕，或自行輸入"></div>
+        <div class="mfield"><label for="mFlower">花名</label><input type="text" id="mFlower" autocomplete="off" placeholder="點下方按鈕（可複選），或自行輸入"></div>
         <div class="chips" id="mRecent" aria-label="最近用過的花名"></div>
         <details id="mAllWrap"><summary>全部花種（<span id="mAllN"></span> 種）</summary><div class="chips" id="mAll"></div></details>
         <div class="mfield"><span class="lbl" id="mCountLbl">站數</span><output id="mCount" aria-labelledby="mCountLbl"></output><small>實際繞圈的站數</small></div>
@@ -1812,14 +1812,15 @@ document.querySelectorAll('input[name="pmode"]').forEach(r => r.addEventListener
 
 /* ===== 手機版：顏色＋花名按鈕 ===== */
 // 花種清單取自蘑菇地圖的篩選代號，中文為常見台灣譯名（可自行輸入其他名稱）
-const FLOWERS = ['一般花','銀蓮花','風鈴草','九重葛','海芋','山茶花','美人蕉','油菜花','康乃馨','嘉德麗雅蘭','雞冠花','櫻花','菊花','鐵線蓮','石蒜','鈴蘭','大波斯菊','仙客來','大理花','石竹','曇花','勿忘我','小蒼蘭','龍膽','聖誕玫瑰','扶桑花','風信子','繡球花','鳶尾花','百合','洋桔梗','萬壽菊','牽牛花','蝴蝶蘭','水仙','粉蝶花','睡蓮','三色堇','牡丹','矮牽牛','梅花','雞蛋花','聖誕紅','報春花','玫瑰','鼠尾草','金魚草','雪蓮花','天堂鳥','向日葵','香豌豆','鬱金香'];
+const FLOWERS = ['普花','銀蓮花','風鈴草','九重葛','海芋','山茶花','美人蕉','油菜花','康乃馨','嘉德麗雅蘭','雞冠花','櫻花','菊花','鐵線蓮','彼岸花','鈴蘭','大波斯菊','兔耳花','大理花','石竹','曇花','勿忘我','小蒼蘭','龍膽','聖誕玫瑰','扶桑花','風信子','繡球花','鳶尾花','百合','洋桔梗','萬壽菊','牽牛花','蝴蝶蘭','水仙','粉蝶花','睡蓮','三色堇','牡丹','矮牽牛','梅花','雞蛋花','聖誕紅','櫻草花','玫瑰','週年紀念玫瑰','鼠尾草','金魚草','雪花蓮','天堂鳥','向日葵','豌豆花','鬱金香','鸚鵡鬱金香'];
 const COLORS = [['白', '白色'], ['紅', '紅色'], ['黃', '黃色'], ['藍', '藍色'], ['混色', '混色'], ['不選', '']];
 const RECENT_KEY = 'gpxMobileFlowers.v1';
 window.mColor = '';
 function loadRecent() { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') || []; } catch (e) { return []; } }
 function rememberFlower(name) {
-  if (!name) return;
-  const list = [name, ...loadRecent().filter(x => x !== name)].slice(0, 8);
+  const names = String(name || '').split('+').map(x => x.trim()).filter(Boolean);
+  if (!names.length) return;
+  const list = [...names, ...loadRecent().filter(x => !names.includes(x))].slice(0, 8);
   try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch (e) {}
   renderFlowerChips();
 }
@@ -1828,13 +1829,15 @@ function renderColorChips() {
   const box = $('mColors'); box.innerHTML = '';
   COLORS.forEach(([lab, val]) => box.appendChild(chip(lab, window.mColor === val, { color: val })));
 }
+// 花名可複選，以「+」串接，例如 鐵線蓮+睡蓮
+const selFlowers = () => $('mFlower').value.split('+').map(x => x.trim()).filter(Boolean);
 function renderFlowerChips() {
-  const cur = $('mFlower').value.trim(), q = cur;
+  const sel = selFlowers(), last = sel[sel.length - 1] || '';
   const rec = $('mRecent'); rec.innerHTML = '';
-  loadRecent().forEach(n => rec.appendChild(chip(n, n === cur, { flower: n })));
+  loadRecent().forEach(n => rec.appendChild(chip(n, sel.includes(n), { flower: n })));
   const all = $('mAll'); all.innerHTML = '';
-  const list = q && !FLOWERS.includes(q) ? FLOWERS.filter(n => n.includes(q)) : FLOWERS;
-  list.forEach(n => all.appendChild(chip(n, n === cur, { flower: n })));
+  const list = last && !FLOWERS.includes(last) ? FLOWERS.filter(n => n.includes(last)) : FLOWERS;
+  list.forEach(n => all.appendChild(chip(n, sel.includes(n), { flower: n })));
   $('mAllN').textContent = FLOWERS.length;
 }
 $('mColors').addEventListener('click', e => {
@@ -1845,14 +1848,16 @@ $('mColors').addEventListener('click', e => {
 ['mRecent', 'mAll'].forEach(id => $(id).addEventListener('click', e => {
   const b = e.target.closest('.chip'); if (!b) return;
   const n = b.dataset.flower;
-  $('mFlower').value = $('mFlower').value.trim() === n ? '' : n;
+  let sel = selFlowers();
+  const last = sel[sel.length - 1];
+  if (last && !FLOWERS.includes(last) && !loadRecent().includes(last) && n.includes(last)) sel.pop();   // 正在打字篩選的片段，用選到的花取代
+  const on = sel.includes(n);
+  sel = on ? sel.filter(x => x !== n) : [...sel, n];
+  $('mFlower').value = sel.join('+');
   renderFlowerChips(); updateOutput();
-  announce($('mFlower').value ? '花名：' + n : '已取消花名');
+  announce((on ? '已取消 ' : '已加入 ') + n + (sel.length ? '，目前：' + sel.join('、') : ''));
 }));
-$('mFlower').addEventListener('input', () => {
-  renderFlowerChips(); updateOutput();
-  if ($('mFlower').value.trim()) $('mAllWrap').open = true;
-});
+$('mFlower').addEventListener('input', () => { renderFlowerChips(); updateOutput(); });
 $('mNum').addEventListener('input', () => { NF.num.value = $('mNum').value; numManual = NF.num.value.trim() !== ''; updateOutput(); });
 $('mNum').addEventListener('blur', () => { const v = numVal(); if (v) { NF.num.value = v; $('mNum').value = v; updateOutput(); } });
 renderColorChips(); renderFlowerChips();
