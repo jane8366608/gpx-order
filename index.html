@@ -231,7 +231,9 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
 .chip{min-height:44px;min-width:44px;padding:6px 14px;border:1.5px solid var(--line);border-radius:999px;background:var(--bg);color:var(--ink);font:inherit;font-size:.95rem;cursor:pointer}
 .chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:var(--on-accent);font-weight:700}
 .chip:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
-#mRecent:empty{display:none}
+#mRecent:empty,#mSuggest:empty{display:none}
+#mSuggest{padding:8px;border:1.5px dashed var(--accent);border-radius:10px}
+#mSuggest::before{content:'符合：';align-self:center;color:var(--muted);font-size:.85rem}
 #mAllWrap .chips{padding:10px 12px 12px;max-height:45vh;overflow-y:auto;overscroll-behavior:contain}
 #mNameSlot .namer{border:0;padding:0}
 #mNameSlot{display:grid;gap:14px}
@@ -273,19 +275,21 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
     <section class="panel mstep" aria-labelledby="mT2">
       <h2 id="mT2"><span class="no" aria-hidden="true">2</span>檔名</h2>
       <div id="mNameSlot">
+        <fieldset class="mchips"><legend>用途</legend><div class="chips" id="mModes"><button type="button" class="chip" data-m="smart">採果</button><button type="button" class="chip" data-m="plant">種花</button></div></fieldset>
         <div class="mfield"><label for="mNum">編號</label><input type="text" id="mNum" maxlength="9" autocomplete="off" aria-describedby="mNumHint"><small id="mNumHint">自動帶入下載當下的月日時分，可手動改</small></div>
         <fieldset class="mchips"><legend>顏色</legend><div class="chips" id="mColors"></div></fieldset>
         <div class="mfield"><label for="mFlower">花名</label><input type="text" id="mFlower" autocomplete="off" placeholder="點下方按鈕（可複選），或自行輸入"></div>
+        <div class="chips" id="mSuggest" aria-label="符合輸入的花名" aria-live="polite"></div>
         <div class="chips" id="mRecent" aria-label="最近用過的花名"></div>
         <details id="mAllWrap"><summary>全部花種（<span id="mAllN"></span> 種）</summary><div class="chips" id="mAll"></div></details>
-        <div class="mfield"><span class="lbl" id="mCountLbl">站數</span><output id="mCount" aria-labelledby="mCountLbl"></output><small>實際繞圈的站數</small></div>
+        <div class="mfield"><span class="lbl" id="mCountLbl">站數</span><output id="mCount" aria-labelledby="mCountLbl"></output><small>實際要跑的站數</small></div>
         <div class="name-preview"><span class="lbl">完整檔名</span><output id="mName" aria-live="polite"></output></div>
       </div>
     </section>
     <section class="panel mstep" aria-labelledby="mT3">
       <h2 id="mT3"><span class="no" aria-hidden="true">3</span>下載</h2>
       <button class="btn primary" id="mDownload" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>下載 .gpx</button>
-      <p class="note"><span class="pick-only">站點依貼上順序排列；要調整順序請按右上角「切換到電腦版」。</span><span class="plant-only">種花模式會自動排成最短路線。</span><span class="smart-only">自動還原偏移座標、每站繞 30 m，並排成最短路線。</span></p>
+      <p class="note"><span class="pick-only">站點依貼上順序排列；要調整順序請按右上角「切換到電腦版」。</span><span class="plant-only">種花：每站由內往外螺旋 10～38 m 共 3 圈，每跳最多 5 m，自動排最短路線。</span><span class="smart-only">自動還原偏移座標、每站繞 30 m，並排成最短路線。</span></p>
     </section>
   </div>
 
@@ -322,7 +326,7 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
         <span><i class="sw order" aria-hidden="true"></i>行走方向</span>
         <span class="pick-only"><i class="sw r1" aria-hidden="true"></i>R1 30 m</span>
         <span class="pick-only"><i class="sw r2" aria-hidden="true"></i>R2 15 m</span>
-        <span class="plant-only"><i class="sw r1" aria-hidden="true"></i>繞圈 30 m</span>
+        <span class="plant-only"><i class="sw r1" aria-hidden="true"></i>螺旋 10～38 m</span>
         <span class="smart-only"><i class="dot" style="background:var(--ok)" aria-hidden="true"></i>還原的花（以花為圓心繞 30 m）</span>
         <span class="smart-only"><i class="sw r1" aria-hidden="true"></i>繞圈路徑 30 m</span>
         <label class="check"><input type="checkbox" id="showDetail" checked> 顯示細部路徑</label>
@@ -368,7 +372,7 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
         <legend>路徑模式</legend>
         <label><input type="radio" name="pmode" value="smart" checked><span><b>智慧採果</b><small>還原偏移・自動最短</small></span></label>
         <label><input type="radio" name="pmode" value="pick"><span><b>雙圈採果</b><small>每站 24 點</small></span></label>
-        <label><input type="radio" name="pmode" value="plant"><span><b>種花</b><small>繞圈・每站 9 點</small></span></label>
+        <label><input type="radio" name="pmode" value="plant"><span><b>種花</b><small>螺旋 10～38 m</small></span></label>
         <p class="imsg ok smart-only smartinfo" id="smartInfo" role="status"></p>
       </fieldset>
       <fieldset class="namer">
@@ -408,7 +412,7 @@ body.m-mode header.top{margin-bottom:12px;padding-block:4px 10px;align-items:cen
       </details>
       <p class="note pick-only">每站 24 點：R1 15 點＋R2 9 點。R1 第 13 點與 R2 第 1 點同座標，依原工具保留。</p>
       <p class="note smart-only">每站繞半徑 30 m 八角形一圈：還原得到的花以真花為圓心（整圈離花 30 m），還原不到的以座標點為圓心；繞圈內每跳最多 18 m，站與站之間直接跳過去。</p>
-      <p class="note plant-only">每站 9 點：半徑 30 m 八角形順時針繞一圈；從上一站穿過中心後進入，自動排最短路線。</p>
+      <p class="note plant-only">每站由內往外螺旋：半徑 10 m 繞到 38 m，總共 3 圈，順時針；每跳最多 5 m（約 19 km/h），自動排最短路線。</p>
     </section>
 
     <!-- 下載紀錄 -->
@@ -703,22 +707,24 @@ function buildAllSteps(list) {
 const PLANT_R = 30, PLANT_M = 111320;
 const mXY = (a, b) => { const cl = Math.cos(a.lat * Math.PI / 180); return { x: (b.lon - a.lon) * PLANT_M * cl, y: (b.lat - a.lat) * PLANT_M }; };
 const mDist = (a, b) => { const v = mXY(a, b); return Math.hypot(v.x, v.y); };
+// 種花：由內往外的螺旋，半徑 10 → 38 m，總共 3 圈（每圈外擴約 9.3 m），順時針
+const SPIRAL_R0 = 10, SPIRAL_R1 = 38, SPIRAL_TURNS = 3, OUTER_LAPS = 0, PLANT_JUMP = 5;
 function buildPlantSteps(list) {
-  const out = [];
-  let prev = null;
+  const out = []; let prev = null;
+  const spinEnd = SPIRAL_TURNS * 2 * Math.PI, total = spinEnd + OUTER_LAPS * 2 * Math.PI;
   list.forEach((c, i) => {
-    // 進入方向：從上一站穿過中心，在對側開始繞；第一站朝向下一站
-    let v = prev ? mXY(prev, c) : (list[i + 1] ? mXY(c, list[i + 1]) : { x: 0, y: 1 });
-    let b0 = Math.atan2(v.x, v.y);
-    if (!isFinite(b0) || (v.x === 0 && v.y === 0)) b0 = 0;
+    // 從上一站穿過中心後，在對側 10 m 處開始往外繞；第一站朝向下一站
+    const v = prev ? mXY(prev, c) : (list[i + 1] ? mXY(c, list[i + 1]) : { x: 0, y: 1 });
+    let b0 = Math.atan2(v.x, v.y); if (!isFinite(b0) || (v.x === 0 && v.y === 0)) b0 = 0;
     const cl = Math.cos(c.lat * Math.PI / 180);
-    const ring = [];
-    for (let k = 0; k < 8; k++) {
-      const b = b0 + k * Math.PI / 4;
-      ring.push({ lat: c.lat + PLANT_R * Math.cos(b) / PLANT_M, lon: c.lon + PLANT_R * Math.sin(b) / (PLANT_M * cl), ring: 1 });
+    for (let t = 0; ; ) {
+      const r = t < spinEnd ? SPIRAL_R0 + (SPIRAL_R1 - SPIRAL_R0) * t / spinEnd : SPIRAL_R1;
+      const b = b0 + t;
+      const q = { lat: c.lat + r * Math.cos(b) / PLANT_M, lon: c.lon + r * Math.sin(b) / (PLANT_M * cl), ring: 1 };
+      out.push(q); prev = q;
+      if (t >= total) break;
+      t = Math.min(total, t + Math.min(0.5, 4.5 / r));
     }
-    out.push(...ring, ring[0]);
-    prev = ring[0];
   });
   return out;
 }
@@ -1485,8 +1491,8 @@ function numVal() {
 const isMobileUI = () => document.body.classList.contains('m-mode');
 function mobileFlowerName() { return (window.mColor || '') + cleanPart(($('mFlower') || { value: '' }).value); }
 function mobileFileName() {
-  const n = route.length ? smartOrdered(routePts()).length : 0;
-  const parts = [numVal(), mobileFlowerName(), n ? n + '個' : ''].filter(Boolean);
+  const n = !route.length ? 0 : (pathMode === 'smart' ? smartOrdered(routePts()).length : route.length);
+  const parts = [numVal(), pathMode === 'plant' ? '種花' : '', mobileFlowerName(), n ? n + '個' : ''].filter(Boolean);
   return parts.join('_') || todayName();
 }
 function fileName() {
@@ -1536,7 +1542,7 @@ function densifySteps(steps, gap) {
 const FIX_SPEED = 19, MAX_JUMP = 18;
 const outSteps = (list, mode) => (mode || pathMode) === 'smart'
   ? smartRings(smartOrdered(list)).flatMap(r => densifySteps(r, MAX_JUMP))   // 繞圈內每跳最多 18 m，站與站之間直接跳
-  : densifySteps(stepsOf(list, mode), MAX_JUMP);
+  : densifySteps(stepsOf(list, mode), (mode || pathMode) === 'plant' ? PLANT_JUMP : MAX_JUMP);   // 種花每跳最多 5 m（約 19 km/h）
 const curSteps = () => outSteps(routePts(), pathMode);
 function currentGPX() { return buildGPX(curSteps(), fileName()); }
 function updateOutput() {
@@ -1556,7 +1562,7 @@ function updateOutput() {
   $('namePreview').textContent = fileName() + '.gpx';
   if ($('mName')) {
     if (document.activeElement !== $('mNum')) $('mNum').value = NF.num.value;
-    $('mCount').textContent = route.length ? smartOrdered(routePts()).length + ' 站' : '—';
+    $('mCount').textContent = route.length ? (pathMode === 'smart' ? smartOrdered(routePts()).length : route.length) + ' 站' : '—';
     $('mName').textContent = (isMobileUI() ? mobileFileName() : fileName()) + '.gpx';
   }
   if (typeof updateSmartInfo === 'function') updateSmartInfo();
@@ -1831,12 +1837,26 @@ function renderColorChips() {
 }
 // 花名可複選，以「+」串接，例如 鐵線蓮+睡蓮
 const selFlowers = () => $('mFlower').value.split('+').map(x => x.trim()).filter(Boolean);
+// 不嚴格比對：完整包含最優先，其次字依序出現，再其次有共同的字
+function fuzzyScore(name, q) {
+  if (!q) return 0;
+  if (name === q) return 100;
+  if (name.includes(q)) return 80 - (name.length - q.length);
+  let i = 0; for (const ch of name) if (ch === q[i]) i++;
+  if (i === q.length) return 60 - (name.length - q.length);
+  const hit = [...new Set(q)].filter(ch => name.includes(ch)).length;
+  return hit ? 20 * hit / q.length : 0;
+}
+const fuzzyList = q => FLOWERS.map(n => [n, fuzzyScore(n, q)]).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]).map(x => x[0]);
+const isPartial = t => t && !FLOWERS.includes(t) && !loadRecent().includes(t);
 function renderFlowerChips() {
   const sel = selFlowers(), last = sel[sel.length - 1] || '';
+  const sug = $('mSuggest'); sug.innerHTML = '';
+  if (isPartial(last)) fuzzyList(last).slice(0, 8).forEach(n => sug.appendChild(chip(n, sel.includes(n), { flower: n })));
   const rec = $('mRecent'); rec.innerHTML = '';
   loadRecent().forEach(n => rec.appendChild(chip(n, sel.includes(n), { flower: n })));
   const all = $('mAll'); all.innerHTML = '';
-  const list = last && !FLOWERS.includes(last) ? FLOWERS.filter(n => n.includes(last)) : FLOWERS;
+  const list = isPartial(last) && fuzzyList(last).length ? fuzzyList(last) : FLOWERS;
   list.forEach(n => all.appendChild(chip(n, sel.includes(n), { flower: n })));
   $('mAllN').textContent = FLOWERS.length;
 }
@@ -1845,12 +1865,12 @@ $('mColors').addEventListener('click', e => {
   window.mColor = b.dataset.color; renderColorChips(); updateOutput();
   announce('顏色：' + (b.textContent));
 });
-['mRecent', 'mAll'].forEach(id => $(id).addEventListener('click', e => {
+['mSuggest', 'mRecent', 'mAll'].forEach(id => $(id).addEventListener('click', e => {
   const b = e.target.closest('.chip'); if (!b) return;
   const n = b.dataset.flower;
   let sel = selFlowers();
   const last = sel[sel.length - 1];
-  if (last && !FLOWERS.includes(last) && !loadRecent().includes(last) && n.includes(last)) sel.pop();   // 正在打字篩選的片段，用選到的花取代
+  if (isPartial(last)) sel.pop();   // 正在打字的片段，用選到的花取代
   const on = sel.includes(n);
   sel = on ? sel.filter(x => x !== n) : [...sel, n];
   $('mFlower').value = sel.join('+');
@@ -1862,6 +1882,17 @@ $('mNum').addEventListener('input', () => { NF.num.value = $('mNum').value; numM
 $('mNum').addEventListener('blur', () => { const v = numVal(); if (v) { NF.num.value = v; $('mNum').value = v; updateOutput(); } });
 renderColorChips(); renderFlowerChips();
 
+// 手機版用途：採果（智慧採果）／種花（螺旋）
+const MMODE_KEY = 'gpxMobileMode.v1';
+function mobileMode() { try { return localStorage.getItem(MMODE_KEY) === 'plant' ? 'plant' : 'smart'; } catch (e) { return 'smart'; } }
+function renderMobileModes() { document.querySelectorAll('#mModes .chip').forEach(b => b.setAttribute('aria-pressed', b.dataset.m === pathMode ? 'true' : 'false')); }
+$('mModes').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  try { localStorage.setItem(MMODE_KEY, b.dataset.m); } catch (er) {}
+  setPathMode(b.dataset.m, true); renderMobileModes(); updateOutput();
+  announce(b.dataset.m === 'plant' ? '已切換為種花：每站螺旋 10～38 m' : '已切換為採果');
+});
+
 /* ===== 手機精簡版 ===== */
 const MODE_KEY = 'gpxViewMode.v1';
 const mq = matchMedia('(max-width: 760px)');
@@ -1872,7 +1903,7 @@ const isM = () => document.body.classList.contains('m-mode');
 function prefMode() { try { return localStorage.getItem(MODE_KEY); } catch (e) { return null; } }
 function setMode(m) {
   document.body.classList.toggle('m-mode', m);
-  if (m && pathMode !== 'smart') setPathMode('smart', true);
+  if (m) { const mm = mobileMode(); if (pathMode !== mm) setPathMode(mm, true); renderMobileModes(); }
   $('btnMode').textContent = m ? '切換到電腦版' : '切換到手機版';
   if (m) syncMobile(); else requestAnimationFrame(() => { sizeCanvas(); drawMap(); });
   updateOutput();
